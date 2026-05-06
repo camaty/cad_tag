@@ -10,16 +10,18 @@ export interface ComponentPart {
 }
 
 export type PartFactory = (size: Size3, color: string) => ComponentPart[];
-type LeafCadTag = Exclude<SupportedCadTag, 'scene' | 'group'>;
+
+type RenderableCadTag = Exclude<SupportedCadTag, 'Scene' | 'Group'>;
 
 const half = (value: number): number => value / 2;
 
-function createBox(id: string, size: Size3, position: Vector3Like, color: string): ComponentPart {
+function createBox(id: string, size: Size3, position: Vector3Like, color: string, rotation?: Vector3Like): ComponentPart {
     return {
         id,
         kind: 'box',
         size,
         position,
+        rotation,
         color
     };
 }
@@ -38,8 +40,8 @@ function createCylinder(id: string, diameter: number, height: number, position: 
     };
 }
 
-export const catalogFactories: Record<LeafCadTag, PartFactory> = {
-    bookshelf: (size, color) => {
+export const catalogFactories: Record<RenderableCadTag, PartFactory> = {
+    Bookshelf: (size, color) => {
         const sideThickness = Math.max(18, size.width * 0.03);
         const shelfThickness = Math.max(18, size.height * 0.015);
         const shelfCount = 5;
@@ -62,7 +64,7 @@ export const catalogFactories: Record<LeafCadTag, PartFactory> = {
 
         return parts;
     },
-    shelf: (size, color) => {
+    Shelf: (size, color) => {
         const post = Math.max(24, size.width * 0.03);
         const tiers = 4;
         const shelfThickness = Math.max(18, size.height * 0.012);
@@ -90,7 +92,7 @@ export const catalogFactories: Record<LeafCadTag, PartFactory> = {
 
         return parts;
     },
-    bed: (size, color) => {
+    Bed: (size, color) => {
         const frameHeight = size.height * 0.35;
         return [
             createBox('frame', { width: size.width, depth: size.depth, height: frameHeight }, { x: 0, y: frameHeight / 2, z: 0 }, color),
@@ -98,7 +100,7 @@ export const catalogFactories: Record<LeafCadTag, PartFactory> = {
             createBox('headboard', { width: size.width, depth: size.depth * 0.06, height: size.height - frameHeight }, { x: 0, y: frameHeight + (size.height - frameHeight) / 2, z: -half(size.depth) + size.depth * 0.03 }, color)
         ];
     },
-    desk: (size, color) => {
+    Desk: (size, color) => {
         const topThickness = 40;
         const legWidth = 60;
         const legHeight = size.height - topThickness;
@@ -116,8 +118,8 @@ export const catalogFactories: Record<LeafCadTag, PartFactory> = {
 
         return parts;
     },
-    table: (size, color) => catalogFactories.desk(size, color),
-    chair: (size, color) => {
+    Table: (size, color) => catalogFactories.Desk(size, color),
+    Chair: (size, color) => {
         const seatHeight = size.height * 0.48;
         const seatThickness = 40;
         const legWidth = 40;
@@ -132,7 +134,7 @@ export const catalogFactories: Record<LeafCadTag, PartFactory> = {
             )
         ];
     },
-    cabinet: (size, color) => {
+    Cabinet: (size, color) => {
         const shell = 24;
         return [
             createBox('body', size, { x: 0, y: half(size.height), z: 0 }, color),
@@ -140,7 +142,7 @@ export const catalogFactories: Record<LeafCadTag, PartFactory> = {
             createBox('right-door', { width: size.width / 2 - shell, depth: 24, height: size.height - shell * 2 }, { x: size.width / 4, y: half(size.height), z: half(size.depth) - 12 }, '#ddd6fe')
         ];
     },
-    sofa: (size, color) => {
+    Sofa: (size, color) => {
         const armWidth = size.width * 0.12;
         const seatHeight = size.height * 0.45;
         return [
@@ -150,7 +152,7 @@ export const catalogFactories: Record<LeafCadTag, PartFactory> = {
             createBox('right-arm', { width: armWidth, depth: size.depth, height: size.height * 0.7 }, { x: half(size.width) - armWidth / 2, y: size.height * 0.35, z: 0 }, color)
         ];
     },
-    'stand-lamp': (size, color) => {
+    StandLamp: (size, color) => {
         const poleHeight = size.height * 0.7;
         return [
             createCylinder('base', size.width * 0.7, size.height * 0.08, { x: 0, y: size.height * 0.04, z: 0 }, '#78350f'),
@@ -158,7 +160,16 @@ export const catalogFactories: Record<LeafCadTag, PartFactory> = {
             createCylinder('shade', size.width * 0.55, size.height * 0.22, { x: 0, y: poleHeight + size.height * 0.18, z: 0 }, '#fde68a')
         ];
     },
-    house: (size, color) => {
+    Room: (size, color) => {
+        const wallThickness = Math.max(80, size.width * 0.015);
+        return [
+            createBox('floor', { width: size.width, depth: size.depth, height: 40 }, { x: 0, y: 20, z: 0 }, '#94a3b8'),
+            createBox('rear-wall', { width: size.width, depth: wallThickness, height: size.height }, { x: 0, y: half(size.height), z: -half(size.depth) + half(wallThickness) }, color),
+            createBox('left-wall', { width: wallThickness, depth: size.depth, height: size.height }, { x: -half(size.width) + half(wallThickness), y: half(size.height), z: 0 }, color),
+            createBox('right-wall', { width: wallThickness, depth: size.depth, height: size.height }, { x: half(size.width) - half(wallThickness), y: half(size.height), z: 0 }, color)
+        ];
+    },
+    House: (size, color) => {
         const roofHeight = size.height * 0.28;
         const wallHeight = size.height - roofHeight;
         return [
@@ -166,13 +177,36 @@ export const catalogFactories: Record<LeafCadTag, PartFactory> = {
             createBox('roof-main', { width: size.width * 1.05, depth: size.depth * 1.05, height: roofHeight }, { x: 0, y: wallHeight + roofHeight / 2, z: 0 }, '#ef4444')
         ];
     },
-    building: (size, color) => [
+    Building: (size, color) => [
         createBox('tower', size, { x: 0, y: half(size.height), z: 0 }, color),
         createBox('podium', { width: size.width * 1.2, depth: size.depth * 1.2, height: size.height * 0.18 }, { x: 0, y: size.height * 0.09, z: 0 }, '#60a5fa')
     ],
-    skyscraper: (size, color) => [
+    Skyscraper: (size, color) => [
         createBox('core', { width: size.width * 0.55, depth: size.depth * 0.55, height: size.height }, { x: 0, y: half(size.height), z: 0 }, color),
         createBox('shell', { width: size.width, depth: size.depth, height: size.height * 0.82 }, { x: 0, y: size.height * 0.41, z: 0 }, '#93c5fd'),
-        createBox('crown', { width: size.width * 0.4, depth: size.depth * 0.4, height: size.height * 0.12 }, { x: 0, y: size.height * 0.88 + size.height * 0.06, z: 0 }, '#bfdbfe')
+        createBox('crown', { width: size.width * 0.4, depth: size.depth * 0.4, height: size.height * 0.12 }, { x: 0, y: size.height * 0.94, z: 0 }, '#bfdbfe')
+    ],
+    KitchenBaseCabinet: (size, color) => {
+        const panel = 18;
+        const toeKickHeight = 90;
+        const bodyHeight = size.height - toeKickHeight;
+        return [
+            createBox('left-side', { width: panel, depth: size.depth, height: bodyHeight }, { x: -half(size.width) + panel / 2, y: toeKickHeight + bodyHeight / 2, z: 0 }, color),
+            createBox('right-side', { width: panel, depth: size.depth, height: bodyHeight }, { x: half(size.width) - panel / 2, y: toeKickHeight + bodyHeight / 2, z: 0 }, color),
+            createBox('back', { width: size.width - panel * 2, depth: panel, height: bodyHeight }, { x: 0, y: toeKickHeight + bodyHeight / 2, z: -half(size.depth) + panel / 2 }, '#dbe4ea'),
+            createBox('bottom', { width: size.width - panel * 2, depth: size.depth - panel, height: panel }, { x: 0, y: toeKickHeight + panel / 2, z: panel / 2 }, '#e2e8f0'),
+            createBox('top-rail', { width: size.width, depth: 80, height: panel }, { x: 0, y: size.height - panel / 2, z: half(size.depth) - 40 }, '#cbd5e1'),
+            createBox('toe-kick', { width: size.width, depth: 80, height: toeKickHeight }, { x: 0, y: toeKickHeight / 2, z: half(size.depth) - 40 }, '#94a3b8')
+        ];
+    },
+    KitchenDrawer_W900: (size, color) => [
+        createBox('drawer-body', size, { x: 0, y: half(size.height), z: 0 }, color),
+        createBox('drawer-front', { width: size.width, depth: 24, height: size.height + 20 }, { x: 0, y: half(size.height), z: half(size.depth) + 12 }, '#f8fafc')
+    ],
+    KitchenDoor_W450_Left: (size, color) => [
+        createBox('door-panel', size, { x: 0, y: half(size.height), z: 0 }, color)
+    ],
+    KitchenDoor_W450_Right: (size, color) => [
+        createBox('door-panel', size, { x: 0, y: half(size.height), z: 0 }, color)
     ]
 };

@@ -6,17 +6,22 @@ import {
     DirectionalLight,
     GridHelper,
     Group,
+    MathUtils,
     Mesh,
     MeshStandardMaterial,
     PerspectiveCamera,
     Scene,
     WebGLRenderer
 } from 'three';
-import type { ResolvedComponent } from '../core/solver';
 import type { ComponentPart } from '../core/catalog';
+import type { ResolvedComponent } from '../core/solver';
 
 function toMeters(value: number): number {
     return value / 1000;
+}
+
+function toRadians(value: number): number {
+    return MathUtils.degToRad(value);
 }
 
 function disposeMesh(mesh: Mesh): void {
@@ -45,6 +50,9 @@ function createMesh(part: ComponentPart): Mesh {
 
     const mesh = new Mesh(geometry, material);
     mesh.position.set(toMeters(part.position.x), toMeters(part.position.y), toMeters(part.position.z));
+    if (part.rotation) {
+        mesh.rotation.set(toRadians(part.rotation.x), toRadians(part.rotation.y), toRadians(part.rotation.z));
+    }
     return mesh;
 }
 
@@ -94,7 +102,8 @@ export class ThreePreview {
 
         for (const component of components) {
             const componentGroup = new Group();
-            componentGroup.position.set(toMeters(component.position.x), 0, toMeters(component.position.z));
+            componentGroup.position.set(toMeters(component.position.x), toMeters(component.position.y), toMeters(component.position.z));
+            componentGroup.rotation.set(toRadians(component.rotation.x), toRadians(component.rotation.y), toRadians(component.rotation.z));
 
             for (const part of component.parts) {
                 componentGroup.add(createMesh(part));

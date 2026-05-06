@@ -12,7 +12,8 @@
         "test:unit": "vitest run tests/unit"
     },
     "dependencies": {
-        "three": "^0.184.0"
+        "three": "^0.184.0",
+        "yaml": "^2.8.4"
     },
     "devDependencies": {
         "@types/three": "^0.184.0",

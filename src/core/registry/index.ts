@@ -7,24 +7,29 @@ export interface RegistryEntry {
     createParts: PartFactory;
 }
 
-type LeafCadTag = Exclude<SupportedCadTag, 'scene' | 'group'>;
+type RenderableCadTag = Exclude<SupportedCadTag, 'Scene' | 'Group'>;
 
-const generatorTags: LeafCadTag[] = [
-    'bookshelf',
-    'bed',
-    'desk',
-    'table',
-    'chair',
-    'cabinet',
-    'shelf',
-    'sofa',
-    'stand-lamp',
-    'house',
-    'building',
-    'skyscraper'
+const generatorTags: RenderableCadTag[] = [
+    'Room',
+    'Bookshelf',
+    'Bed',
+    'Desk',
+    'Table',
+    'Chair',
+    'Cabinet',
+    'Shelf',
+    'Sofa',
+    'StandLamp',
+    'House',
+    'Building',
+    'Skyscraper',
+    'KitchenBaseCabinet',
+    'KitchenDrawer_W900',
+    'KitchenDoor_W450_Left',
+    'KitchenDoor_W450_Right'
 ];
 
-export const registryVersion = '1.0.0';
+export const registryVersion = '2.0.0';
 
 export const cadRegistry = new Map<SupportedCadTag, RegistryEntry>(
     generatorTags.map((tag) => [
