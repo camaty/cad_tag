@@ -1,0 +1,12 @@
+{
+  "github.copilot.advanced": {
+    "model": "GPT-5 (copilot)"
+  },
+  "chat.agent.enabled": true,
+  "chat.agentHandoff": true,
+  "chat.promptFilesRecommendations": true,
+  "chat.useCustomizationsInParentRepositories": true,
+  "chat.skillsLocations": [
+    ".github/skills"
+  ]
+}
