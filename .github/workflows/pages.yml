@@ -4,6 +4,7 @@ on:
     push:
         branches:
             - main
+            - copilot/add-cad-tags-and-vite-app
     workflow_dispatch:
 
 permissions:
