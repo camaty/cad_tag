@@ -274,18 +274,15 @@ function isSupportedCadTag(tagName: string): tagName is SupportedCadTag {
     return supportedTags.has(tagName);
 }
 
-function extractAttrs(element: Element): Record<string, string> {
-    const attrs: Record<string, string> = {};
-
-    for (const attribute of Array.from(element.attributes)) {
-        attrs[attribute.name] = attribute.value;
-    }
-
-    return attrs;
+interface RawParsedNode {
+    tagName: string;
+    attrs: Record<string, string>;
+    children: RawParsedNode[];
+    sourceOffset: number;
 }
 
-function getTagName(element: Element): SupportedCadTag {
-    const normalizedName = element.tagName.toLowerCase();
+function getTagName(tagName: string): SupportedCadTag {
+    const normalizedName = tagName.toLowerCase();
 
     if (!isSupportedCadTag(normalizedName)) {
         throw new CadMarkupError(`Unsupported tag: <${normalizedName}>`);
@@ -294,33 +291,105 @@ function getTagName(element: Element): SupportedCadTag {
     return normalizedName;
 }
 
-export function parseCadMarkup(markup: string): NormalizedNode {
-    const parser = new DOMParser();
-    const documentNode = parser.parseFromString(markup, 'application/xml');
-    const parserError = documentNode.querySelector('parsererror');
+function parseAttributes(rawAttrs: string): Record<string, string> {
+    const attrs: Record<string, string> = {};
+    const attrPattern = /([a-zA-Z_:][\w:.-]*)\s*=\s*(['"])(.*?)\2/gu;
+    let remaining = rawAttrs.trim();
+    let match = attrPattern.exec(remaining);
 
-    if (parserError) {
-        throw new CadMarkupError(parserError.textContent?.trim() ?? 'Malformed CAD markup.');
+    while (match) {
+        attrs[match[1]] = match[3];
+        remaining = remaining.replace(match[0], ' ').trim();
+        match = attrPattern.exec(rawAttrs);
     }
 
-    const rootElement = documentNode.documentElement;
+    if (remaining.length > 0) {
+        throw new CadMarkupError(`Malformed attribute list: ${rawAttrs}`);
+    }
 
-    if (!rootElement) {
+    return attrs;
+}
+
+function parseMarkupTree(markup: string): RawParsedNode {
+    const tokenPattern = /<\s*(\/)?\s*([a-z0-9-]+)([^>]*)>/giu;
+    const stack: RawParsedNode[] = [];
+    let rootNode: RawParsedNode | null = null;
+    let lastIndex = 0;
+    let match = tokenPattern.exec(markup);
+
+    while (match) {
+        const [token, closingMarker, rawTagName, rawAttrs] = match;
+        const between = markup.slice(lastIndex, match.index);
+
+        if (between.trim().length > 0) {
+            throw new CadMarkupError('Text nodes are not supported in CAD markup.');
+        }
+
+        const isClosing = closingMarker === '/';
+        const isSelfClosing = !isClosing && rawAttrs.trim().endsWith('/');
+        const tagName = rawTagName.toLowerCase();
+        const attrsSource = isSelfClosing ? rawAttrs.trim().slice(0, -1).trim() : rawAttrs.trim();
+
+        if (isClosing) {
+            const currentNode = stack.pop();
+            if (!currentNode || currentNode.tagName !== tagName) {
+                throw new CadMarkupError(`Malformed CAD markup near </${tagName}>.`);
+            }
+        } else {
+            const node: RawParsedNode = {
+                tagName,
+                attrs: parseAttributes(attrsSource),
+                children: [],
+                sourceOffset: match.index
+            };
+
+            if (stack.length > 0) {
+                stack[stack.length - 1]?.children.push(node);
+            } else if (!rootNode) {
+                rootNode = node;
+            } else {
+                throw new CadMarkupError('CAD markup must contain a single root node.');
+            }
+
+            if (!isSelfClosing) {
+                stack.push(node);
+            }
+        }
+
+        lastIndex = match.index + token.length;
+        match = tokenPattern.exec(markup);
+    }
+
+    if (markup.slice(lastIndex).trim().length > 0) {
+        throw new CadMarkupError('Text nodes are not supported in CAD markup.');
+    }
+
+    if (stack.length > 0) {
+        throw new CadMarkupError('Malformed CAD markup: unclosed tag detected.');
+    }
+
+    if (!rootNode) {
         throw new CadMarkupError('CAD markup must contain a root node.');
     }
+
+    return rootNode;
+}
+
+export function parseCadMarkup(markup: string): NormalizedNode {
+    const rootElement = parseMarkupTree(markup);
 
     const idSet = new Set<string>();
     let sourceOrder = 0;
 
-    const visit = (element: Element, parentTag?: SupportedCadTag): NormalizedNode => {
-        const tag = getTagName(element);
+    const visit = (element: RawParsedNode, parentTag?: SupportedCadTag): NormalizedNode => {
+        const tag = getTagName(element.tagName);
         const definition = tagDefinitions[tag];
 
         if (parentTag && !tagDefinitions[parentTag].allowedChildren.includes(tag)) {
             throw new CadMarkupError(`<${tag}> is not allowed inside <${parentTag}>.`);
         }
 
-        const attrs = extractAttrs(element);
+        const attrs = element.attrs;
         const id = attrs.id ?? `${tag}-${sourceOrder + 1}`;
 
         if (idSet.has(id)) {
@@ -335,7 +404,7 @@ export function parseCadMarkup(markup: string): NormalizedNode {
             }
         }
 
-        const childElements = Array.from(element.children);
+        const childElements = element.children;
         if (definition.allowedChildren.length === 0 && childElements.length > 0) {
             throw new CadMarkupError(`<${tag}> cannot contain child tags.`);
         }
@@ -350,7 +419,7 @@ export function parseCadMarkup(markup: string): NormalizedNode {
             children: childElements.map((child) => visit(child, tag)),
             sourceOrder: currentOrder,
             provenance: {
-                lineHint: currentOrder + 1
+                lineHint: element.sourceOffset + 1
             }
         };
     };
