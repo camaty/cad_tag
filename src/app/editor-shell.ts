@@ -85,11 +85,7 @@ export class CadEditorShell extends HTMLElement {
                     <div class="editor-column">
                         <div class="panel-header">
                             <h2>Markup editor</h2>
-                            <div class="preset-row">
-                                ${Object.keys(presets)
-                                    .map((label) => `<button class="preset-button" data-preset="${label}" type="button">${label}</button>`)
-                                    .join('')}
-                            </div>
+                            <div id="preset-row" class="preset-row"></div>
                         </div>
                         <textarea id="markup-input" spellcheck="false"></textarea>
                         <div class="action-row">
@@ -136,9 +132,20 @@ export class CadEditorShell extends HTMLElement {
     private bindEvents(): void {
         const textarea = this.querySelector<HTMLTextAreaElement>('#markup-input');
         const solveButton = this.querySelector<HTMLButtonElement>('#solve-button');
+        const presetRow = this.querySelector<HTMLElement>('#preset-row');
 
-        if (!textarea || !solveButton) {
+        if (!textarea || !solveButton || !presetRow) {
             return;
+        }
+
+        presetRow.replaceChildren();
+        for (const label of Object.keys(presets)) {
+            const button = document.createElement('button');
+            button.className = 'preset-button';
+            button.type = 'button';
+            button.textContent = label;
+            button.dataset.preset = label;
+            presetRow.appendChild(button);
         }
 
         textarea.value = fullCoverageMarkup;

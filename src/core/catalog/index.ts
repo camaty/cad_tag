@@ -1,4 +1,4 @@
-import type { PartKind, Size3, Vector3Like } from '../tag-schema';
+import type { PartKind, Size3, SupportedCadTag, Vector3Like } from '../tag-schema';
 
 export interface ComponentPart {
     id: string;
@@ -10,6 +10,7 @@ export interface ComponentPart {
 }
 
 export type PartFactory = (size: Size3, color: string) => ComponentPart[];
+type LeafCadTag = Exclude<SupportedCadTag, 'scene' | 'group'>;
 
 const half = (value: number): number => value / 2;
 
@@ -37,7 +38,7 @@ function createCylinder(id: string, diameter: number, height: number, position: 
     };
 }
 
-export const catalogFactories: Record<string, PartFactory> = {
+export const catalogFactories: Record<LeafCadTag, PartFactory> = {
     bookshelf: (size, color) => {
         const sideThickness = Math.max(18, size.width * 0.03);
         const shelfThickness = Math.max(18, size.height * 0.015);

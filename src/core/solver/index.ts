@@ -1,6 +1,7 @@
 import type { ComponentPart } from '../catalog';
 import { getRegistryEntry } from '../registry';
 import {
+    CadMarkupError,
     assertPositiveSize,
     parseCadMarkup,
     parseDimension,
@@ -57,9 +58,13 @@ function readOffset(node: NormalizedNode, key: 'x' | 'y' | 'z'): number | null {
 }
 
 function layoutChildren(node: NormalizedNode, parentOffset: Vector3Like, context: SolveContext): void {
-    const gap = parseDimension(node.attrs.gap, 1200);
-    const columns = Math.max(1, Number.parseInt(node.attrs.columns ?? '4', 10) || 4);
-    let occupiedHeight = 0;
+    const rawGap = parseDimension(node.attrs.gap, 1200);
+    if (rawGap <= 0) {
+        throw new CadMarkupError(`gap must be a positive dimension; got ${node.attrs.gap ?? 'default'}.`);
+    }
+    const gap = rawGap;
+    const rawColumns = Number.parseInt(node.attrs.columns ?? '4', 10);
+    const columns = Number.isFinite(rawColumns) ? Math.max(1, rawColumns) : 4;
 
     node.children.forEach((child, index) => {
         if (child.tag === 'group') {
@@ -99,11 +104,7 @@ function layoutChildren(node: NormalizedNode, parentOffset: Vector3Like, context
                 registryVersion: entry.version
             }
         });
-
-        occupiedHeight = Math.max(occupiedHeight, size.height);
     });
-
-    void occupiedHeight;
 }
 
 function computeBounds(components: ResolvedComponent[]): { width: number; depth: number; height: number } {

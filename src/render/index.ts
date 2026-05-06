@@ -19,6 +19,19 @@ function toMeters(value: number): number {
     return value / 1000;
 }
 
+function disposeMesh(mesh: Mesh): void {
+    mesh.geometry.dispose();
+
+    if (Array.isArray(mesh.material)) {
+        for (const material of mesh.material) {
+            material.dispose();
+        }
+        return;
+    }
+
+    mesh.material.dispose();
+}
+
 function createMesh(part: ComponentPart): Mesh {
     const geometry = part.kind === 'cylinder'
         ? new CylinderGeometry(toMeters(part.size.width / 2), toMeters(part.size.width / 2), toMeters(part.size.height), 24)
@@ -72,6 +85,11 @@ export class ThreePreview {
     }
 
     render(components: ResolvedComponent[]): void {
+        this.assemblyGroup.traverse((object) => {
+            if (object instanceof Mesh) {
+                disposeMesh(object);
+            }
+        });
         this.assemblyGroup.clear();
 
         for (const component of components) {
@@ -96,6 +114,11 @@ export class ThreePreview {
 
     dispose(): void {
         this.resizeObserver.disconnect();
+        this.assemblyGroup.traverse((object) => {
+            if (object instanceof Mesh) {
+                disposeMesh(object);
+            }
+        });
         this.renderer.dispose();
         this.mountNode.innerHTML = '';
     }

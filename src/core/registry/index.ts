@@ -7,7 +7,9 @@ export interface RegistryEntry {
     createParts: PartFactory;
 }
 
-const generatorTags: SupportedCadTag[] = [
+type LeafCadTag = Exclude<SupportedCadTag, 'scene' | 'group'>;
+
+const generatorTags: LeafCadTag[] = [
     'bookshelf',
     'bed',
     'desk',
