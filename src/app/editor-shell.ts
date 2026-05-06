@@ -286,7 +286,13 @@ export class CadEditorShell extends HTMLElement {
 
         const previewRoot = this.querySelector<HTMLElement>('#preview-root');
         if (previewRoot) {
-            this.preview = new ThreePreview(previewRoot);
+            try {
+                this.preview = new ThreePreview(previewRoot);
+            } catch (error) {
+                this.preview = null;
+                const message = error instanceof Error ? error.message : 'Preview unavailable';
+                previewRoot.innerHTML = `<p class="meta-text">Three.js preview unavailable: ${message}</p>`;
+            }
         }
     }
 
