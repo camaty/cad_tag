@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildTagPreset, heroTagButtons } from '../../src/app/presets';
 import { compileCadYaml } from '../../src/core';
 import { buildExportPayload } from '../../src/export';
 import { parseCadYaml } from '../../src/core/tag-schema';
@@ -174,5 +175,54 @@ components:
         const payload = buildExportPayload(graph);
         expect(payload.joints).toHaveLength(1);
         expect(payload.joints[0]?.value).toBe(120);
+    });
+
+    it('decodes YAML material settings into the solved graph and export payload', () => {
+        const graph = compileCadYaml(`type: Cabinet
+id: cabinet
+material:
+    color: '#7c3aed'
+    metalness: 0.2
+    roughness: 0.33
+materials:
+    left-door:
+        color: '#c4b5fd'
+        roughness: 0.18
+`).graph;
+
+        expect(graph.components[0]?.materials.default).toEqual({
+            color: '#7c3aed',
+            metalness: 0.2,
+            roughness: 0.33
+        });
+        expect(graph.components[0]?.materials['left-door']).toEqual({
+            color: '#c4b5fd',
+            roughness: 0.18
+        });
+
+        const payload = buildExportPayload(graph);
+        expect(payload.components[0]?.materials).toEqual(graph.components[0]?.materials);
+    });
+
+    it('builds clickable hero presets for every advertised tag', () => {
+        expect(heroTagButtons).toEqual([
+            'Bookshelf',
+            'Bed',
+            'Desk',
+            'Table',
+            'Chair',
+            'Cabinet',
+            'Shelf',
+            'Sofa',
+            'StandLamp',
+            'Room',
+            'House',
+            'Building',
+            'Skyscraper',
+            'KitchenBaseCabinet'
+        ]);
+        expect(buildTagPreset('Cabinet')).toContain('type: Cabinet');
+        expect(buildTagPreset('Cabinet')).toContain('materials:');
+        expect(buildTagPreset('KitchenBaseCabinet')).toContain('sockets:');
     });
 });

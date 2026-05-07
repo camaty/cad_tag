@@ -17,6 +17,7 @@ export interface ExportPayload {
             y: number;
             z: number;
         };
+        materials?: Record<string, unknown>;
         parentId?: string;
     }>;
     joints: Array<{
@@ -43,6 +44,7 @@ export function buildExportPayload(graph: AssemblyGraph): ExportPayload {
             partCount: component.parts.length,
             dimensionsMm: component.size,
             positionMm: component.position,
+            ...(Object.keys(component.materials).length > 0 ? { materials: component.materials } : {}),
             parentId: component.parentId
         })),
         joints: graph.joints.map((joint) => ({

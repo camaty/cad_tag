@@ -46,6 +46,16 @@ export interface JointLimits {
     max: number;
 }
 
+export interface MaterialConfig {
+    color?: string;
+    metalness?: number;
+    roughness?: number;
+    emissive?: string;
+    emissiveIntensity?: number;
+    opacity?: number;
+    transparent?: boolean;
+}
+
 export interface NormalizedSocket {
     id: string;
     position: Vector3Like;
@@ -66,6 +76,7 @@ export interface NormalizedNode {
     };
     sockets: NormalizedSocket[];
     boundingBox: BoundingBoxSpec;
+    materials: Record<string, MaterialConfig>;
 }
 
 export interface TagDefinition {
@@ -374,6 +385,43 @@ function getOptionalString(record: Record<string, unknown>, key: string): string
     return stringifyScalar(value);
 }
 
+function parseOptionalFiniteNumber(value: unknown, context: string): number | undefined {
+    if (value === undefined || value === null) {
+        return undefined;
+    }
+
+    const parsed = typeof value === 'number' ? value : Number.parseFloat(stringifyScalar(value));
+    if (!Number.isFinite(parsed)) {
+        throw new CadMarkupError(`${context} must be a finite number.`);
+    }
+
+    return parsed;
+}
+
+function parseOptionalBoolean(value: unknown, context: string): boolean | undefined {
+    if (value === undefined || value === null) {
+        return undefined;
+    }
+
+    if (typeof value === 'boolean') {
+        return value;
+    }
+
+    const normalized = stringifyScalar(value).trim().toLowerCase();
+    if (normalized === 'true') {
+        return true;
+    }
+    if (normalized === 'false') {
+        return false;
+    }
+
+    throw new CadMarkupError(`${context} must be true or false.`);
+}
+
+function clampUnitInterval(value: number): number {
+    return Math.max(0, Math.min(1, value));
+}
+
 export function parseDimension(rawValue: string | number | undefined, fallback: number): number {
     if (rawValue === undefined || rawValue === null) {
         return fallback;
@@ -536,6 +584,72 @@ function parseSockets(rawValue: unknown, origin: Vector3Like): NormalizedSocket[
     });
 }
 
+function parseMaterialConfig(rawValue: unknown, context: string): MaterialConfig {
+    const record = expectRecord(rawValue, context);
+    const config: MaterialConfig = {};
+    const color = getOptionalString(record, 'color');
+    const emissive = getOptionalString(record, 'emissive');
+    const metalness = parseOptionalFiniteNumber(record.metalness, `${context}.metalness`);
+    const roughness = parseOptionalFiniteNumber(record.roughness, `${context}.roughness`);
+    const emissiveIntensity = parseOptionalFiniteNumber(record.emissiveIntensity, `${context}.emissiveIntensity`);
+    const opacity = parseOptionalFiniteNumber(record.opacity, `${context}.opacity`);
+    const transparent = parseOptionalBoolean(record.transparent, `${context}.transparent`);
+
+    if (color) {
+        config.color = color;
+    }
+    if (emissive) {
+        config.emissive = emissive;
+    }
+    if (metalness !== undefined) {
+        config.metalness = clampUnitInterval(metalness);
+    }
+    if (roughness !== undefined) {
+        config.roughness = clampUnitInterval(roughness);
+    }
+    if (emissiveIntensity !== undefined) {
+        config.emissiveIntensity = emissiveIntensity;
+    }
+    if (opacity !== undefined) {
+        config.opacity = Math.max(0, Math.min(1, opacity));
+    }
+    if (transparent !== undefined) {
+        config.transparent = transparent;
+    }
+
+    return config;
+}
+
+function parseMaterials(rawValue: unknown, context: string): Record<string, MaterialConfig> {
+    const record = expectRecord(rawValue, context);
+    const materials: Record<string, MaterialConfig> = {};
+
+    for (const [key, value] of Object.entries(record)) {
+        materials[key] = parseMaterialConfig(value, `${context}.${key}`);
+    }
+
+    return materials;
+}
+
+function mergeMaterials(...materialMaps: Array<Record<string, MaterialConfig> | undefined>): Record<string, MaterialConfig> {
+    const merged: Record<string, MaterialConfig> = {};
+
+    for (const materialMap of materialMaps) {
+        if (!materialMap) {
+            continue;
+        }
+
+        for (const [key, value] of Object.entries(materialMap)) {
+            merged[key] = {
+                ...(merged[key] ?? {}),
+                ...value
+            };
+        }
+    }
+
+    return merged;
+}
+
 interface ParseState {
     nextOrder: number;
 }
@@ -586,6 +700,15 @@ function buildNode(rawValue: unknown, state: ParseState, parentTag?: SupportedCa
         }
     }
 
+    const inlineMaterial = record.material ? { default: parseMaterialConfig(record.material, `${tag}.material`) } : undefined;
+    const materials = record.materials ? parseMaterials(record.materials, `${tag}.materials`) : undefined;
+    const visualMaterials = record.visual
+        ? (() => {
+            const visualRecord = expectRecord(record.visual, `${tag}.visual`);
+            return visualRecord.materials ? parseMaterials(visualRecord.materials, `${tag}.visual.materials`) : undefined;
+        })()
+        : undefined;
+
     if (record.position) {
         const position = parseVector3(record.position, `${tag}.position`);
         attrs.x = `${position.x}`;
@@ -624,7 +747,8 @@ function buildNode(rawValue: unknown, state: ParseState, parentTag?: SupportedCa
             lineHint: sourceOrder + 1
         },
         sockets,
-        boundingBox
+        boundingBox,
+        materials: mergeMaterials(inlineMaterial, materials, visualMaterials)
     };
 }
 
@@ -655,7 +779,8 @@ export function parseCadYaml(source: string): NormalizedNode {
         boundingBox: {
             size: { width: 0, depth: 0, height: 0 },
             position: { x: 0, y: 0, z: 0 }
-        }
+        },
+        materials: {}
     };
 }
 

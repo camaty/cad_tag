@@ -23,6 +23,7 @@ export function compileCadYaml(source: string): CompileResult {
                     position: component.position,
                     rotation: component.rotation,
                     metadata: component.metadata,
+                    materials: component.materials,
                     partCount: component.parts.length,
                     parentId: component.parentId,
                     attachment: component.attachment

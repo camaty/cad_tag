@@ -2,6 +2,7 @@ import type { ComponentPart } from '../catalog';
 import { getRegistryEntry, registryVersion } from '../registry';
 import {
     CadMarkupError,
+    type MaterialConfig,
     assertPositiveSize,
     parseAngle,
     parseCadYaml,
@@ -36,6 +37,7 @@ export interface ResolvedComponent {
     rotation: Vector3Like;
     parts: ComponentPart[];
     metadata: Record<string, string>;
+    materials: Record<string, MaterialConfig>;
     sockets: NormalizedSocket[];
     parentId?: string;
     attachment?: ResolvedJoint;
@@ -160,6 +162,7 @@ function createComponent(node: NormalizedNode, placement: PlacementSpec, context
         rotation: placement.rotation,
         parts,
         sockets: node.sockets,
+        materials: node.materials,
         parentId: placement.parentId,
         attachment: placement.attachment,
         metadata: {
