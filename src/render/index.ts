@@ -20,7 +20,7 @@ import {
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { ComponentPart } from '../core/catalog';
 import type { ResolvedComponent } from '../core/solver';
-import type { MaterialConfig } from '../core/tag-schema';
+import { clampUnitInterval, type MaterialConfig } from '../core/tag-schema';
 
 function toMeters(value: number): number {
     return value / 1000;
@@ -43,12 +43,12 @@ function disposeMesh(mesh: Mesh): void {
     mesh.material.dispose();
 }
 
-function clampUnitInterval(value: number | undefined, fallback: number): number {
+function readClampedUnitInterval(value: number | undefined, fallback: number): number {
     if (value === undefined || Number.isNaN(value)) {
         return fallback;
     }
 
-    return Math.max(0, Math.min(1, value));
+    return clampUnitInterval(value);
 }
 
 function resolveMaterialConfig(part: ComponentPart, materials: Record<string, MaterialConfig>): MaterialConfig {
@@ -68,9 +68,9 @@ function createMesh(part: ComponentPart, materials: Record<string, MaterialConfi
         color: new Color(materialConfig.color ?? part.color),
         emissive: new Color(materialConfig.emissive ?? '#000000'),
         emissiveIntensity: materialConfig.emissiveIntensity ?? 0,
-        metalness: clampUnitInterval(materialConfig.metalness, 0.18),
-        roughness: clampUnitInterval(materialConfig.roughness, 0.62),
-        opacity: clampUnitInterval(materialConfig.opacity, 1),
+        metalness: readClampedUnitInterval(materialConfig.metalness, 0.18),
+        roughness: readClampedUnitInterval(materialConfig.roughness, 0.62),
+        opacity: readClampedUnitInterval(materialConfig.opacity, 1),
         transparent: materialConfig.transparent ?? false
     });
 

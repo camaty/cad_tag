@@ -156,7 +156,7 @@ materials:
         transparent: true`,
     KitchenBaseCabinet: `type: KitchenBaseCabinet
 id: KBC-900-STD
-name: システムキッチン『ルミナス』 ベースキャビネット W900
+name: システムキッチン『ルミナス』ベースキャビネット W900
 parameters:
     width: 900
     height: 850

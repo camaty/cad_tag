@@ -418,7 +418,7 @@ function parseOptionalBoolean(value: unknown, context: string): boolean | undefi
     throw new CadMarkupError(`${context} must be true or false.`);
 }
 
-function clampUnitInterval(value: number): number {
+export function clampUnitInterval(value: number): number {
     return Math.max(0, Math.min(1, value));
 }
 
