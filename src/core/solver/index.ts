@@ -76,6 +76,10 @@ interface LayoutMargins {
     back: number;
 }
 
+// Keep broad spacing at root scenes so large furniture/building presets do not overlap in preview.
+const ROOT_FLOW_X_SPACING_MULTIPLIER = 2.8;
+const ROOT_FLOW_Z_SPACING_MULTIPLIER = 2.4;
+
 function zeroVector(): Vector3Like {
     return { x: 0, y: 0, z: 0 };
 }
@@ -260,8 +264,8 @@ function resolveChildPlacement(
     const margins = readMargins(child);
     const column = index % columns;
     const row = Math.floor(index / columns);
-    const defaultXFromAnchor = column * gap * 2.8 + column * margins.right + margins.left;
-    const defaultZFromAnchor = row * gap * 2.4 + row * margins.front + margins.back;
+    const defaultXFromAnchor = column * gap * ROOT_FLOW_X_SPACING_MULTIPLIER + column * margins.right + margins.left;
+    const defaultZFromAnchor = row * gap * ROOT_FLOW_Z_SPACING_MULTIPLIER + row * margins.front + margins.back;
 
     if (!parentComponent) {
         return {
@@ -278,12 +282,18 @@ function resolveChildPlacement(
     const parentBaseY = parentComponent.position.y - parentComponent.size.height / 2;
     const parentMinX = parentComponent.position.x - parentComponent.size.width / 2;
     const parentMinZ = parentComponent.position.z - parentComponent.size.depth / 2;
+    const defaultChildX = parentMinX + margins.left + size.width / 2 + column * (size.width + gap + margins.right);
+    const defaultChildY = parentBaseY + margins.bottom + size.height / 2;
+    const defaultChildZ = parentMinZ + margins.back + size.depth / 2 + row * (size.depth + gap + margins.front);
+    const resolvedX = explicitX ?? (defaultChildX - parentAnchor.x);
+    const resolvedY = explicitY ?? (defaultChildY - parentAnchor.y);
+    const resolvedZ = explicitZ ?? (defaultChildZ - parentAnchor.z);
 
     return {
         position: {
-            x: parentAnchor.x + (explicitX ?? (parentMinX + margins.left + size.width / 2 + column * (size.width + gap + margins.right) - parentAnchor.x)),
-            y: parentAnchor.y + (explicitY ?? (parentBaseY + margins.bottom + size.height / 2 - parentAnchor.y)),
-            z: parentAnchor.z + (explicitZ ?? (parentMinZ + margins.back + size.depth / 2 + row * (size.depth + gap + margins.front) - parentAnchor.z))
+            x: parentAnchor.x + resolvedX,
+            y: parentAnchor.y + resolvedY,
+            z: parentAnchor.z + resolvedZ
         },
         rotation: zeroVector(),
         parentId: parentComponent?.id
