@@ -611,7 +611,7 @@ function parseMaterialConfig(rawValue: unknown, context: string): MaterialConfig
         config.emissiveIntensity = emissiveIntensity;
     }
     if (opacity !== undefined) {
-        config.opacity = Math.max(0, Math.min(1, opacity));
+        config.opacity = clampUnitInterval(opacity);
     }
     if (transparent !== undefined) {
         config.transparent = transparent;

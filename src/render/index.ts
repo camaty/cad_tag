@@ -52,7 +52,7 @@ function resolveMaterialConfig(part: ComponentPart, materials: Record<string, Ma
 
 function createMesh(part: ComponentPart, materials: Record<string, MaterialConfig>): Mesh {
     const geometry = part.kind === 'cylinder'
-        ? new CylinderGeometry(toMeters(part.size.width / 2), toMeters(part.size.width / 2), toMeters(part.size.height), 48)
+        ? new CylinderGeometry(toMeters(part.size.width / 2), toMeters(part.size.width / 2), toMeters(part.size.height), 24)
         : new BoxGeometry(toMeters(part.size.width), toMeters(part.size.height), toMeters(part.size.depth));
     const materialConfig = resolveMaterialConfig(part, materials);
 
