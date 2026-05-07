@@ -208,5 +208,11 @@ export const catalogFactories: Record<RenderableCadTag, PartFactory> = {
     ],
     KitchenDoor_W450_Right: (size, color) => [
         createBox('door-panel', size, { x: 0, y: half(size.height), z: 0 }, color)
+    ],
+    PrimitiveBox: (size, color) => [
+        createBox('primitive-box', size, { x: 0, y: half(size.height), z: 0 }, color)
+    ],
+    PrimitiveCylinder: (size, color) => [
+        createCylinder('primitive-cylinder', size.width, size.height, { x: 0, y: half(size.height), z: 0 }, color)
     ]
 };

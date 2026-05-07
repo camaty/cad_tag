@@ -108,11 +108,9 @@ h1 {
     border: 1px solid rgba(147, 197, 253, 0.22);
     text-align: center;
     color: #e2e8f0;
-    cursor: pointer;
-    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+    transition: background 120ms ease, border-color 120ms ease;
 }
 
-.tag-chip:hover,
 .preset-button:hover,
 #solve-button:hover {
     transform: translateY(-1px);
@@ -120,7 +118,7 @@ h1 {
 
 .tag-chip:hover,
 .tag-chip:focus-visible {
-    background: rgba(96, 165, 250, 0.24);
+    background: rgba(59, 130, 246, 0.2);
     border-color: rgba(191, 219, 254, 0.42);
 }
 

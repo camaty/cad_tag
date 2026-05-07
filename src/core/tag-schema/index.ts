@@ -19,7 +19,9 @@ export type SupportedCadTag =
     | 'KitchenBaseCabinet'
     | 'KitchenDrawer_W900'
     | 'KitchenDoor_W450_Left'
-    | 'KitchenDoor_W450_Right';
+    | 'KitchenDoor_W450_Right'
+    | 'PrimitiveBox'
+    | 'PrimitiveCylinder';
 
 export type PartKind = 'box' | 'cylinder';
 export type JointType = 'fixed' | 'slider' | 'hinge';
@@ -107,7 +109,9 @@ const furnitureTags: SupportedCadTag[] = [
     'Shelf',
     'Sofa',
     'StandLamp',
-    'KitchenBaseCabinet'
+    'KitchenBaseCabinet',
+    'PrimitiveBox',
+    'PrimitiveCylinder'
 ];
 
 const roomChildren: SupportedCadTag[] = [...furnitureTags, 'KitchenDrawer_W900', 'KitchenDoor_W450_Left', 'KitchenDoor_W450_Right'];
@@ -309,6 +313,26 @@ export const tagDefinitions: Record<SupportedCadTag, TagDefinition> = {
         allowedChildren: [],
         exportMeaning: 'Right-hinged cabinet door.',
         validationErrors: leafValidationErrors
+    },
+    PrimitiveBox: {
+        tag: 'PrimitiveBox',
+        label: 'Primitive Box',
+        defaultSize: { width: 600, depth: 600, height: 18 },
+        color: '#94a3b8',
+        category: 'mechanism',
+        allowedChildren: [],
+        exportMeaning: 'Generic box primitive for deterministic structural composition.',
+        validationErrors: ['PrimitiveBox dimensions and margins must produce non-floating placement in the solved graph.']
+    },
+    PrimitiveCylinder: {
+        tag: 'PrimitiveCylinder',
+        label: 'Primitive Cylinder',
+        defaultSize: { width: 80, depth: 80, height: 800 },
+        color: '#64748b',
+        category: 'mechanism',
+        allowedChildren: [],
+        exportMeaning: 'Generic cylinder primitive for deterministic structural composition.',
+        validationErrors: ['PrimitiveCylinder dimensions and margins must produce non-floating placement in the solved graph.']
     }
 };
 
@@ -331,6 +355,8 @@ const useAliases: Record<string, SupportedCadTag> = {
     KitchenDrawer_W900: 'KitchenDrawer_W900',
     KitchenDoor_W450_Left: 'KitchenDoor_W450_Left',
     KitchenDoor_W450_Right: 'KitchenDoor_W450_Right',
+    PrimitiveBox: 'PrimitiveBox',
+    PrimitiveCylinder: 'PrimitiveCylinder',
     'ソフトクローズ引き出しユニット W900': 'KitchenDrawer_W900',
     '木目調キャビネット扉 左開き': 'KitchenDoor_W450_Left',
     '木目調キャビネット扉 右開き': 'KitchenDoor_W450_Right'
@@ -682,7 +708,26 @@ function buildNode(rawValue: unknown, state: ParseState, parentTag?: SupportedCa
         type: tag
     };
 
-    for (const key of ['name', 'manufacturer', 'description', 'file', 'attach_to', 'material_body'] as const) {
+    for (const key of [
+        'name',
+        'manufacturer',
+        'description',
+        'file',
+        'attach_to',
+        'material_body',
+        'margin',
+        'margin_x',
+        'margin_y',
+        'margin_z',
+        'margin_left',
+        'margin_right',
+        'margin_top',
+        'margin_bottom',
+        'margin_front',
+        'margin_back',
+        'columns',
+        'gap'
+    ] as const) {
         const value = getOptionalString(record, key);
         if (value !== undefined) {
             attrs[key] = value;
@@ -691,6 +736,10 @@ function buildNode(rawValue: unknown, state: ParseState, parentTag?: SupportedCa
 
     const parameters = record.parameters ? expectRecord(record.parameters, `${tag}.parameters`) : {};
     normalizeParameters(parameters, attrs);
+    if (record.layout) {
+        const layout = expectRecord(record.layout, `${tag}.layout`);
+        normalizeParameters(layout, attrs);
+    }
 
     if (record.visual) {
         const visualRecord = expectRecord(record.visual, `${tag}.visual`);

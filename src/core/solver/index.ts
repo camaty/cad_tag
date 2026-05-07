@@ -67,6 +67,15 @@ interface PlacementSpec {
     attachment?: ResolvedJoint;
 }
 
+interface LayoutMargins {
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+    front: number;
+    back: number;
+}
+
 function zeroVector(): Vector3Like {
     return { x: 0, y: 0, z: 0 };
 }
@@ -107,6 +116,22 @@ function readColumns(node: NormalizedNode): number {
 
 function readJointValue(node: NormalizedNode): number {
     return parseAngle(node.attrs.joint_value, 0);
+}
+
+function readMargins(node: NormalizedNode): LayoutMargins {
+    const margin = parseDimension(node.attrs.margin, 0);
+    const marginX = parseDimension(node.attrs.margin_x, margin);
+    const marginY = parseDimension(node.attrs.margin_y, margin);
+    const marginZ = parseDimension(node.attrs.margin_z, margin);
+
+    return {
+        left: parseDimension(node.attrs.margin_left, marginX),
+        right: parseDimension(node.attrs.margin_right, marginX),
+        top: parseDimension(node.attrs.margin_top, marginY),
+        bottom: parseDimension(node.attrs.margin_bottom, marginY),
+        front: parseDimension(node.attrs.margin_front, marginZ),
+        back: parseDimension(node.attrs.margin_back, marginZ)
+    };
 }
 
 function addVectors(left: Vector3Like, right: Vector3Like): Vector3Like {
@@ -232,14 +257,33 @@ function resolveChildPlacement(
     const explicitX = readOffset(child, 'x');
     const explicitY = readOffset(child, 'y');
     const explicitZ = readOffset(child, 'z');
+    const margins = readMargins(child);
     const column = index % columns;
     const row = Math.floor(index / columns);
+    const defaultXFromAnchor = column * gap * 2.8 + column * margins.right + margins.left;
+    const defaultZFromAnchor = row * gap * 2.4 + row * margins.front + margins.back;
+
+    if (!parentComponent) {
+        return {
+            position: {
+                x: parentAnchor.x + (explicitX ?? defaultXFromAnchor),
+                y: parentAnchor.y + (explicitY ?? (child.tag === 'Scene' || child.tag === 'Group' ? 0 : size.height / 2 + margins.bottom)),
+                z: parentAnchor.z + (explicitZ ?? defaultZFromAnchor)
+            },
+            rotation: zeroVector(),
+            parentId: undefined
+        };
+    }
+
+    const parentBaseY = parentComponent.position.y - parentComponent.size.height / 2;
+    const parentMinX = parentComponent.position.x - parentComponent.size.width / 2;
+    const parentMinZ = parentComponent.position.z - parentComponent.size.depth / 2;
 
     return {
         position: {
-            x: parentAnchor.x + (explicitX ?? column * gap * 2.8),
-            y: parentAnchor.y + (explicitY ?? (child.tag === 'Scene' || child.tag === 'Group' ? 0 : size.height / 2)),
-            z: parentAnchor.z + (explicitZ ?? row * gap * 2.4)
+            x: parentAnchor.x + (explicitX ?? (parentMinX + margins.left + size.width / 2 + column * (size.width + gap + margins.right) - parentAnchor.x)),
+            y: parentAnchor.y + (explicitY ?? (parentBaseY + margins.bottom + size.height / 2 - parentAnchor.y)),
+            z: parentAnchor.z + (explicitZ ?? (parentMinZ + margins.back + size.depth / 2 + row * (size.depth + gap + margins.front) - parentAnchor.z))
         },
         rotation: zeroVector(),
         parentId: parentComponent?.id

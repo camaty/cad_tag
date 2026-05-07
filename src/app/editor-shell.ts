@@ -1,7 +1,7 @@
 import { compileCadYaml } from '../core';
 import { buildExportPayload } from '../export';
 import { ThreePreview } from '../render';
-import { buildTagPreset, heroTagButtons, scenarioPresets, type HeroTagButton } from './presets';
+import { heroTagButtons, scenarioPresets } from './presets';
 
 export class CadEditorShell extends HTMLElement {
     private preview: ThreePreview | null = null;
@@ -9,7 +9,7 @@ export class CadEditorShell extends HTMLElement {
     connectedCallback(): void {
         this.render();
         this.bindEvents();
-        this.runCompile(scenarioPresets['YAML full coverage']);
+        this.runCompile(scenarioPresets['Primitive kitchen assembly']);
     }
 
     disconnectedCallback(): void {
@@ -23,10 +23,10 @@ export class CadEditorShell extends HTMLElement {
                     <div>
                         <p class="eyebrow">cad_tag</p>
                         <h1>HTML風タグではなく YAML で主要家具・部屋・家屋・機構を記述</h1>
-                        <p class="hero-copy">canonical assembly graph を基準に、YAML シーン/部品定義から家具・部屋・家屋・URDF 風 slider / hinge 機構を解決して Three.js でプレビューします。ヘッダーのタグ名をクリックすると、その YAML プリセットを即座に読み込めます。</p>
+                        <p class="hero-copy">canonical assembly graph を基準に、YAML 上でプリミティブと URDF 風 joint/socket を合成し、margin ベースで物理的に破綻しない 3D レイアウトを解決して Three.js でプレビューします。</p>
                     </div>
                     <div class="tag-grid" id="hero-tag-grid">
-                        ${heroTagButtons.map((tag) => `<button class="tag-chip" type="button" data-tag="${tag}">${tag}</button>`).join('')}
+                        ${heroTagButtons.map((tag) => `<span class="tag-chip">${tag}</span>`).join('')}
                     </div>
                 </section>
                 <section class="workspace">
@@ -44,9 +44,9 @@ export class CadEditorShell extends HTMLElement {
                             <h3>サポート範囲</h3>
                             <ul>
                                 <li>YAML ベースの scene / component 定義</li>
-                                <li>主要家具、Room、House、Building、Skyscraper</li>
+                                <li>PrimitiveBox / PrimitiveCylinder による複合構造</li>
                                 <li>URDF 風 socket + slider / hinge + limits</li>
-                                <li>レンダリングは assembly graph から再構築</li>
+                                <li>margin ベースの非宙浮きレイアウト解決</li>
                             </ul>
                         </div>
                     </div>
@@ -87,9 +87,8 @@ export class CadEditorShell extends HTMLElement {
         const textarea = this.querySelector<HTMLTextAreaElement>('#markup-input');
         const solveButton = this.querySelector<HTMLButtonElement>('#solve-button');
         const presetRow = this.querySelector<HTMLElement>('#preset-row');
-        const heroTagGrid = this.querySelector<HTMLElement>('#hero-tag-grid');
 
-        if (!textarea || !solveButton || !presetRow || !heroTagGrid) {
+        if (!textarea || !solveButton || !presetRow) {
             return;
         }
 
@@ -103,7 +102,7 @@ export class CadEditorShell extends HTMLElement {
             presetRow.appendChild(button);
         }
 
-        textarea.value = scenarioPresets['YAML full coverage'];
+        textarea.value = scenarioPresets['Primitive kitchen assembly'];
         solveButton.addEventListener('click', () => this.runCompile(textarea.value));
         textarea.addEventListener('keydown', (event) => {
             if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
@@ -113,20 +112,8 @@ export class CadEditorShell extends HTMLElement {
 
         this.querySelectorAll<HTMLButtonElement>('.preset-button').forEach((button) => {
             button.addEventListener('click', () => {
-                const preset = scenarioPresets[button.dataset.preset ?? 'YAML full coverage'];
+                const preset = scenarioPresets[button.dataset.preset ?? 'Primitive kitchen assembly'];
                 textarea.value = preset;
-                this.runCompile(textarea.value);
-            });
-        });
-
-        heroTagGrid.querySelectorAll<HTMLButtonElement>('.tag-chip').forEach((button) => {
-            button.addEventListener('click', () => {
-                const tag = button.dataset.tag;
-                if (!tag) {
-                    return;
-                }
-
-                textarea.value = buildTagPreset(tag as HeroTagButton);
                 this.runCompile(textarea.value);
             });
         });

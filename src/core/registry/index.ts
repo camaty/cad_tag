@@ -26,7 +26,9 @@ const generatorTags: RenderableCadTag[] = [
     'KitchenBaseCabinet',
     'KitchenDrawer_W900',
     'KitchenDoor_W450_Left',
-    'KitchenDoor_W450_Right'
+    'KitchenDoor_W450_Right',
+    'PrimitiveBox',
+    'PrimitiveCylinder'
 ];
 
 export const registryVersion = '2.0.0';

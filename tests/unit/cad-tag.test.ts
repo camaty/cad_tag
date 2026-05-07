@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTagPreset, heroTagButtons } from '../../src/app/presets';
+import { heroTagButtons, scenarioPresets } from '../../src/app/presets';
 import { compileCadYaml } from '../../src/core';
 import { buildExportPayload } from '../../src/export';
 import { parseCadYaml } from '../../src/core/tag-schema';
@@ -204,7 +204,7 @@ materials:
         expect(payload.components[0]?.materials).toEqual(graph.components[0]?.materials);
     });
 
-    it('builds clickable hero presets for every advertised tag', () => {
+    it('keeps the advertised header tags while emphasizing primitive assembly presets', () => {
         expect(heroTagButtons).toEqual([
             'Bookshelf',
             'Bed',
@@ -221,8 +221,45 @@ materials:
             'Skyscraper',
             'KitchenBaseCabinet'
         ]);
-        expect(buildTagPreset('Cabinet')).toContain('type: Cabinet');
-        expect(buildTagPreset('Cabinet')).toContain('materials:');
-        expect(buildTagPreset('KitchenBaseCabinet')).toContain('sockets:');
+        expect(scenarioPresets['Primitive kitchen assembly']).toContain('type: KitchenBaseCabinet');
+        expect(scenarioPresets['Primitive layout constraints']).toContain('type: PrimitiveBox');
+        expect(scenarioPresets['Primitive layout constraints']).toContain('margin_bottom');
+    });
+
+    it('supports primitive composition and keeps nested parts grounded with margin-based placement', () => {
+        const graph = compileCadYaml(`type: Room
+id: room
+parameters:
+    width: 3000
+    depth: 2400
+    height: 2600
+components:
+    - type: PrimitiveBox
+      id: base
+      parameters:
+        width: 1200
+        depth: 600
+        height: 80
+      margin_left: 200
+      margin_back: 160
+      margin_bottom: 0
+    - type: PrimitiveBox
+      id: side_panel
+      parameters:
+        width: 18
+        depth: 600
+        height: 720
+      margin_left: 200
+      margin_back: 160
+      margin_bottom: 80
+`).graph;
+
+        expect(graph.components.map((component) => component.tag)).toEqual(['Room', 'PrimitiveBox', 'PrimitiveBox']);
+        const room = graph.components[0]!;
+        const base = graph.components[1]!;
+        const panel = graph.components[2]!;
+        const roomBaseY = room.position.y - room.size.height / 2;
+        expect(base.position.y - base.size.height / 2).toBe(roomBaseY);
+        expect(panel.position.y - panel.size.height / 2).toBe(roomBaseY + 80);
     });
 });
