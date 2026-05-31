@@ -134,16 +134,19 @@ parameters:
     });
 
     it('keeps nested room offsets and export payload deterministic', () => {
+        const roomCenterY = 1400;
+        const deskHeight = 740;
+        const groundedDeskY = deskHeight / 2 - roomCenterY;
         const graph = compileCadYaml(`type: Scene
 id: root
 components:
     - type: Room
       id: room
-      position: [2000, 1400, 1000]
+      position: [2000, ${roomCenterY}, 1000]
       components:
         - type: Desk
           id: desk
-          position: [300, -1030, -200]
+          position: [300, ${groundedDeskY}, -200]
 `).graph;
         expect(graph.components[0]?.tag).toBe('Room');
         expect(graph.components[1]?.position.x).toBe(2300);

@@ -839,7 +839,7 @@ export function parseCadYaml(source: string): NormalizedNode {
     };
 }
 
-const xmlContainerTags = new Set(['parameters', 'layout', 'visual', 'bounding_box', 'BoundingBox', 'sockets', 'Sockets', 'materials']);
+const xmlContainerTags = new Set(['parameters', 'layout', 'visual', 'bounding_box', 'boundingbox', 'sockets', 'materials']);
 
 function readXmlParser(): DOMParser {
     if (typeof DOMParser === 'undefined') {
@@ -946,9 +946,9 @@ function readXmlMaterials(element: Element): Record<string, unknown> {
         if (!key) {
             throw new CadMarkupError(`${child.tagName} inside ${element.tagName} requires id or name.`);
         }
-        const { id: _id, name: _name, ...materialAttrs } = attrs;
-        void _id;
-        void _name;
+        const materialAttrs = { ...attrs };
+        delete materialAttrs.id;
+        delete materialAttrs.name;
         materials[key] = materialAttrs;
     }
 
@@ -1010,7 +1010,7 @@ function readXmlNode(element: Element): Record<string, unknown> {
             rawNode.sockets = readXmlSockets(child);
             continue;
         }
-        if (xmlContainerTags.has(child.tagName)) {
+        if (xmlContainerTags.has(child.tagName.toLowerCase())) {
             throw new CadMarkupError(`${child.tagName} is not valid in this XML position.`);
         }
 

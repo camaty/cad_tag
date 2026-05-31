@@ -142,6 +142,10 @@ function readMargins(node: NormalizedNode): LayoutMargins {
     };
 }
 
+function hasAnyAttr(attrs: Record<string, string>, keys: string[]): boolean {
+    return keys.some((key) => attrs[key] !== undefined);
+}
+
 function addVectors(left: Vector3Like, right: Vector3Like): Vector3Like {
     return {
         x: left.x + right.x,
@@ -286,8 +290,8 @@ function resolveChildPlacement(
     const parentBaseY = parentComponent.position.y - parentComponent.size.height / 2;
     const parentMinX = parentComponent.position.x - parentComponent.size.width / 2;
     const parentMinZ = parentComponent.position.z - parentComponent.size.depth / 2;
-    const hasExplicitMarginX = child.attrs.margin_left !== undefined || child.attrs.margin_right !== undefined || child.attrs.margin_x !== undefined || child.attrs.margin !== undefined;
-    const hasExplicitMarginZ = child.attrs.margin_front !== undefined || child.attrs.margin_back !== undefined || child.attrs.margin_z !== undefined || child.attrs.margin !== undefined;
+    const hasExplicitMarginX = hasAnyAttr(child.attrs, ['margin_left', 'margin_right', 'margin_x', 'margin']);
+    const hasExplicitMarginZ = hasAnyAttr(child.attrs, ['margin_front', 'margin_back', 'margin_z', 'margin']);
     const defaultChildX = parentMinX + margins.left + size.width / 2 + (hasExplicitMarginX ? 0 : column * (size.width + gap + margins.right));
     const defaultChildY = parentBaseY + margins.bottom + size.height / 2;
     const defaultChildZ = parentMinZ + margins.back + size.depth / 2 + (hasExplicitMarginZ ? 0 : row * (size.depth + gap + margins.front));
