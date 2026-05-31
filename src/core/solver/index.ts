@@ -286,11 +286,11 @@ function resolveChildPlacement(
     const parentBaseY = parentComponent.position.y - parentComponent.size.height / 2;
     const parentMinX = parentComponent.position.x - parentComponent.size.width / 2;
     const parentMinZ = parentComponent.position.z - parentComponent.size.depth / 2;
-    const explicitMarginX = child.attrs.margin_left !== undefined || child.attrs.margin_right !== undefined || child.attrs.margin_x !== undefined || child.attrs.margin !== undefined;
-    const explicitMarginZ = child.attrs.margin_front !== undefined || child.attrs.margin_back !== undefined || child.attrs.margin_z !== undefined || child.attrs.margin !== undefined;
-    const defaultChildX = parentMinX + margins.left + size.width / 2 + (explicitMarginX ? 0 : column * (size.width + gap + margins.right));
+    const hasExplicitMarginX = child.attrs.margin_left !== undefined || child.attrs.margin_right !== undefined || child.attrs.margin_x !== undefined || child.attrs.margin !== undefined;
+    const hasExplicitMarginZ = child.attrs.margin_front !== undefined || child.attrs.margin_back !== undefined || child.attrs.margin_z !== undefined || child.attrs.margin !== undefined;
+    const defaultChildX = parentMinX + margins.left + size.width / 2 + (hasExplicitMarginX ? 0 : column * (size.width + gap + margins.right));
     const defaultChildY = parentBaseY + margins.bottom + size.height / 2;
-    const defaultChildZ = parentMinZ + margins.back + size.depth / 2 + (explicitMarginZ ? 0 : row * (size.depth + gap + margins.front));
+    const defaultChildZ = parentMinZ + margins.back + size.depth / 2 + (hasExplicitMarginZ ? 0 : row * (size.depth + gap + margins.front));
     const resolvedX = explicitX ?? (defaultChildX - parentAnchor.x);
     const resolvedY = explicitY ?? (defaultChildY - parentAnchor.y);
     const resolvedZ = explicitZ ?? (defaultChildZ - parentAnchor.z);
@@ -455,8 +455,12 @@ function intersectionVolume(left: ResolvedComponent, right: ResolvedComponent): 
     return overlapX * overlapY * overlapZ;
 }
 
+function isDoorTag(tag: SupportedCadTag): boolean {
+    return tag === 'KitchenDoor_W450_Left' || tag === 'KitchenDoor_W450_Right';
+}
+
 function validateDoorDepthClearance(child: ResolvedComponent, parent: ResolvedComponent): void {
-    if (child.tag !== 'KitchenDoor_W450_Left' && child.tag !== 'KitchenDoor_W450_Right') {
+    if (!isDoorTag(child.tag)) {
         return;
     }
 

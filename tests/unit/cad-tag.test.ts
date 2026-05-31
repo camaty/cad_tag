@@ -228,6 +228,17 @@ materials:
     <Chair id="duplicate" />
 </Scene>`)
         ).toThrow(/Duplicate component id/);
+
+        expect(() =>
+            parseCadYaml(`type: Scene
+id: root
+components:
+    - type: Desk
+      id: duplicate
+    - type: Chair
+      id: duplicate
+`)
+        ).toThrow(/Duplicate component id/);
     });
 
     it('rejects floating parts and excessive structural interference', () => {

@@ -23,7 +23,7 @@ export class CadEditorShell extends HTMLElement {
                     <div>
                         <p class="eyebrow">cad_tag</p>
                         <h1>XML タグで主要家具・部屋・家屋・機構を記述</h1>
-                        <p class="hero-copy">canonical assembly graph を基準に、XML 上でプリミティブと URDF 風 joint/socket を合成し、floor / support / interference 検証で物理的に破綻しない 3D レイアウトを解決して Three.js でプレビューします。</p>
+                        <p class="hero-copy">canonical assembly graph を基準に、XML 上でプリミティブと URDF 風 joint/socket を合成し、floor / support / door clearance / interference 検証で物理的に破綻しない 3D レイアウトを解決して Three.js でプレビューします。</p>
                     </div>
                     <div class="tag-grid" id="hero-tag-grid">
                         ${heroTagButtons.map((tag) => `<span class="tag-chip">${tag}</span>`).join('')}
