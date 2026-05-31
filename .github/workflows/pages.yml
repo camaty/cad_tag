@@ -5,6 +5,7 @@ on:
         branches:
             - main
             - copilot/add-cad-tags-and-vite-app
+            - copilot/pages-deploy
     workflow_dispatch:
 
 permissions:
