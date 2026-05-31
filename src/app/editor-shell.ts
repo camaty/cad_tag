@@ -1,4 +1,4 @@
-import { compileCadYaml } from '../core';
+import { compileCadMarkup } from '../core';
 import { buildExportPayload } from '../export';
 import { ThreePreview } from '../render';
 import { heroTagButtons, scenarioPresets } from './presets';
@@ -9,7 +9,7 @@ export class CadEditorShell extends HTMLElement {
     connectedCallback(): void {
         this.render();
         this.bindEvents();
-        this.runCompile(scenarioPresets['Primitive kitchen assembly']);
+        this.runCompile(scenarioPresets['XML kitchen assembly']);
     }
 
     disconnectedCallback(): void {
@@ -22,8 +22,8 @@ export class CadEditorShell extends HTMLElement {
                 <section class="hero-panel">
                     <div>
                         <p class="eyebrow">cad_tag</p>
-                        <h1>HTML風タグではなく YAML で主要家具・部屋・家屋・機構を記述</h1>
-                        <p class="hero-copy">canonical assembly graph を基準に、YAML 上でプリミティブと URDF 風 joint/socket を合成し、margin ベースで物理的に破綻しない 3D レイアウトを解決して Three.js でプレビューします。</p>
+                        <h1>XML タグで主要家具・部屋・家屋・機構を記述</h1>
+                        <p class="hero-copy">canonical assembly graph を基準に、XML 上でプリミティブと URDF 風 joint/socket を合成し、floor / support / door clearance / interference 検証で物理的に破綻しない 3D レイアウトを解決して Three.js でプレビューします。</p>
                     </div>
                     <div class="tag-grid" id="hero-tag-grid">
                         ${heroTagButtons.map((tag) => `<span class="tag-chip">${tag}</span>`).join('')}
@@ -32,28 +32,28 @@ export class CadEditorShell extends HTMLElement {
                 <section class="workspace">
                     <div class="editor-column">
                         <div class="panel-header">
-                            <h2>YAML editor</h2>
+                            <h2>XML editor</h2>
                             <div id="preset-row" class="preset-row"></div>
                         </div>
                         <textarea id="markup-input" spellcheck="false"></textarea>
                         <div class="action-row">
-                            <button id="solve-button" type="button">Solve YAML assembly</button>
+                            <button id="solve-button" type="button">Solve XML assembly</button>
                             <div id="status-pill" class="status-pill">Ready</div>
                         </div>
                         <div class="notes-panel">
                             <h3>サポート範囲</h3>
                             <ul>
-                                <li>YAML ベースの scene / component 定義</li>
+                                <li>XML ベースの scene / component 定義</li>
                                 <li>PrimitiveBox / PrimitiveCylinder による複合構造</li>
                                 <li>URDF 風 socket + slider / hinge + limits</li>
-                                <li>margin ベースの非宙浮きレイアウト解決</li>
+                                <li>margin ベースの非宙浮きレイアウト解決と過干渉検出</li>
                             </ul>
                         </div>
                     </div>
                     <div class="preview-column">
                         <div class="panel-header">
                             <h2>Three.js preview</h2>
-                            <p class="meta-text">deterministic YAML scene render / orbit drag + wheel zoom</p>
+                            <p class="meta-text">deterministic XML scene render / orbit drag + wheel zoom</p>
                         </div>
                         <div id="preview-root" class="preview-root"></div>
                         <div class="insight-grid">
@@ -102,7 +102,7 @@ export class CadEditorShell extends HTMLElement {
             presetRow.appendChild(button);
         }
 
-        textarea.value = scenarioPresets['Primitive kitchen assembly'];
+        textarea.value = scenarioPresets['XML kitchen assembly'];
         solveButton.addEventListener('click', () => this.runCompile(textarea.value));
         textarea.addEventListener('keydown', (event) => {
             if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
@@ -112,7 +112,7 @@ export class CadEditorShell extends HTMLElement {
 
         this.querySelectorAll<HTMLButtonElement>('.preset-button').forEach((button) => {
             button.addEventListener('click', () => {
-                const preset = scenarioPresets[button.dataset.preset ?? 'Primitive kitchen assembly'];
+                const preset = scenarioPresets[button.dataset.preset ?? 'XML kitchen assembly'];
                 textarea.value = preset;
                 this.runCompile(textarea.value);
             });
@@ -125,7 +125,7 @@ export class CadEditorShell extends HTMLElement {
         const exportOutput = this.querySelector<HTMLElement>('#export-output');
 
         try {
-            const result = compileCadYaml(source);
+            const result = compileCadMarkup(source);
             const exportPayload = buildExportPayload(result.graph);
             this.preview?.render(result.graph.components);
 

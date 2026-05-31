@@ -337,6 +337,7 @@ export const tagDefinitions: Record<SupportedCadTag, TagDefinition> = {
 };
 
 const supportedTags = new Set<SupportedCadTag>(Object.keys(tagDefinitions) as SupportedCadTag[]);
+const DEFAULT_SOCKET_AXIS = ['0', '0', '1'];
 const useAliases: Record<string, SupportedCadTag> = {
     Bookshelf: 'Bookshelf',
     Bed: 'Bed',
@@ -678,6 +679,7 @@ function mergeMaterials(...materialMaps: Array<Record<string, MaterialConfig> | 
 
 interface ParseState {
     nextOrder: number;
+    ids: Set<string>;
 }
 
 function normalizeParameters(parameters: Record<string, unknown>, attrs: Record<string, string>): void {
@@ -704,6 +706,11 @@ function buildNode(rawValue: unknown, state: ParseState, parentTag?: SupportedCa
     state.nextOrder += 1;
 
     const id = getOptionalString(record, 'id') ?? `${tag}-${sourceOrder + 1}`;
+    if (state.ids.has(id)) {
+        throw new CadMarkupError(`Duplicate component id: ${id}`);
+    }
+    state.ids.add(id);
+
     const attrs: Record<string, string> = {
         type: tag
     };
@@ -808,7 +815,7 @@ export function parseCadYaml(source: string): NormalizedNode {
     }
 
     const rootValue = documentNode.toJS();
-    const state: ParseState = { nextOrder: 0 };
+    const state: ParseState = { nextOrder: 0, ids: new Set<string>() };
     const parsedRoot = buildNode(rootValue, state);
 
     if (parsedRoot.tag === 'Scene') {
@@ -833,4 +840,225 @@ export function parseCadYaml(source: string): NormalizedNode {
     };
 }
 
-export const parseCadMarkup = parseCadYaml;
+const xmlContainerTags = new Set(['parameters', 'layout', 'visual', 'bounding_box', 'boundingbox', 'sockets', 'materials']);
+
+function readXmlParser(): DOMParser {
+    if (typeof DOMParser === 'undefined') {
+        throw new CadMarkupError('XML parsing requires DOMParser in the current runtime.');
+    }
+
+    return new DOMParser();
+}
+
+function elementChildren(element: Element): Element[] {
+    return Array.from(element.children);
+}
+
+function assertNoTextNodes(element: Element): void {
+    for (const node of Array.from(element.childNodes)) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
+            throw new CadMarkupError(`${element.tagName} may only contain XML elements, not free text.`);
+        }
+    }
+}
+
+function readXmlAttributes(element: Element): Record<string, string> {
+    const attrs: Record<string, string> = {};
+    for (const attr of Array.from(element.attributes)) {
+        attrs[attr.name] = attr.value;
+    }
+
+    return attrs;
+}
+
+function splitXmlList(rawValue: string | undefined, context: string): string[] {
+    if (!rawValue) {
+        throw new CadMarkupError(`${context} is required.`);
+    }
+
+    return rawValue
+        .split(/[,\s]+/u)
+        .map((value) => value.trim())
+        .filter(Boolean);
+}
+
+function readXmlVector(rawValue: string | undefined, context: string): string[] {
+    const values = splitXmlList(rawValue, context);
+    if (values.length !== 3) {
+        throw new CadMarkupError(`${context} must contain exactly 3 values.`);
+    }
+
+    return values;
+}
+
+function readXmlConfig(element: Element): Record<string, unknown> {
+    assertNoTextNodes(element);
+    return readXmlAttributes(element);
+}
+
+function readXmlBoundingBox(element: Element): Record<string, unknown> {
+    const attrs = readXmlAttributes(element);
+    return {
+        size: readXmlVector(attrs.size, `${element.tagName}.size`),
+        ...(attrs.position ? { position: readXmlVector(attrs.position, `${element.tagName}.position`) } : {})
+    };
+}
+
+function readXmlSocket(element: Element): Record<string, unknown> {
+    assertNoTextNodes(element);
+    const attrs = readXmlAttributes(element);
+    const limitsElement = elementChildren(element).find((child) => child.tagName === 'limits' || child.tagName === 'Limits');
+    const limitsAttrs = limitsElement ? readXmlAttributes(limitsElement) : attrs;
+
+    return {
+        id: attrs.id,
+        position: readXmlVector(attrs.position, `${element.tagName}.position`),
+        allowed_types: splitXmlList(attrs.allowed_types ?? attrs.allowedTypes, `${element.tagName}.allowed_types`),
+        joint_type: attrs.joint_type ?? attrs.jointType,
+        axis: attrs.axis ? readXmlVector(attrs.axis, `${element.tagName}.axis`) : DEFAULT_SOCKET_AXIS,
+        limits: {
+            min: limitsAttrs.min,
+            max: limitsAttrs.max
+        }
+    };
+}
+
+function readXmlSockets(element: Element): Record<string, unknown>[] {
+    assertNoTextNodes(element);
+    return elementChildren(element).map((child) => {
+        if (child.tagName !== 'socket' && child.tagName !== 'Socket') {
+            throw new CadMarkupError(`${child.tagName} is not allowed inside ${element.tagName}.`);
+        }
+
+        return readXmlSocket(child);
+    });
+}
+
+function readXmlMaterials(element: Element): Record<string, unknown> {
+    assertNoTextNodes(element);
+    const materials: Record<string, unknown> = {};
+    for (const child of elementChildren(element)) {
+        if (child.tagName !== 'material' && child.tagName !== 'Material') {
+            throw new CadMarkupError(`${child.tagName} is not allowed inside ${element.tagName}.`);
+        }
+
+        const attrs = readXmlAttributes(child);
+        const key = attrs.id ?? attrs.name;
+        if (!key) {
+            throw new CadMarkupError(`${child.tagName} inside ${element.tagName} requires id or name.`);
+        }
+        const materialAttrs = { ...attrs };
+        delete materialAttrs.id;
+        delete materialAttrs.name;
+        materials[key] = materialAttrs;
+    }
+
+    return materials;
+}
+
+function readXmlNode(element: Element): Record<string, unknown> {
+    assertNoTextNodes(element);
+    const attrs = readXmlAttributes(element);
+    const elementTag = element.tagName === 'component' || element.tagName === 'Component' ? attrs.type ?? attrs.use : element.tagName;
+    if (!elementTag) {
+        throw new CadMarkupError(`${element.tagName} must declare type or use.`);
+    }
+
+    const rawNode: Record<string, unknown> = {
+        ...attrs,
+        type: elementTag
+    };
+    const parameters: Record<string, unknown> = {};
+    for (const dimensionKey of ['width', 'depth', 'height', 'panel_thickness'] as const) {
+        if (attrs[dimensionKey] !== undefined) {
+            parameters[dimensionKey] = attrs[dimensionKey];
+        }
+    }
+    if (Object.keys(parameters).length > 0) {
+        rawNode.parameters = parameters;
+    }
+
+    const components: Record<string, unknown>[] = [];
+    for (const child of elementChildren(element)) {
+        if (child.tagName === 'parameters' || child.tagName === 'Parameters') {
+            rawNode.parameters = {
+                ...(rawNode.parameters as Record<string, unknown> | undefined),
+                ...readXmlConfig(child)
+            };
+            continue;
+        }
+        if (child.tagName === 'layout' || child.tagName === 'Layout') {
+            rawNode.layout = readXmlConfig(child);
+            continue;
+        }
+        if (child.tagName === 'visual' || child.tagName === 'Visual') {
+            rawNode.visual = readXmlConfig(child);
+            continue;
+        }
+        if (child.tagName === 'material' || child.tagName === 'Material') {
+            rawNode.material = readXmlConfig(child);
+            continue;
+        }
+        if (child.tagName === 'materials' || child.tagName === 'Materials') {
+            rawNode.materials = readXmlMaterials(child);
+            continue;
+        }
+        if (child.tagName === 'bounding_box' || child.tagName === 'BoundingBox') {
+            rawNode.bounding_box = readXmlBoundingBox(child);
+            continue;
+        }
+        if (child.tagName === 'sockets' || child.tagName === 'Sockets') {
+            rawNode.sockets = readXmlSockets(child);
+            continue;
+        }
+        if (xmlContainerTags.has(child.tagName.toLowerCase())) {
+            throw new CadMarkupError(`${child.tagName} is not valid in this XML position.`);
+        }
+
+        components.push(readXmlNode(child));
+    }
+    if (components.length > 0) {
+        rawNode.components = components;
+    }
+
+    return rawNode;
+}
+
+export function parseCadXml(source: string): NormalizedNode {
+    const documentNode = readXmlParser().parseFromString(source, 'application/xml');
+    const parserError = documentNode.querySelector('parsererror');
+    if (parserError) {
+        throw new CadMarkupError(parserError.textContent?.trim() || 'Malformed XML CAD document.');
+    }
+
+    const rootElement = documentNode.documentElement;
+    if (!rootElement) {
+        throw new CadMarkupError('XML CAD document must contain a root element.');
+    }
+
+    const state: ParseState = { nextOrder: 0, ids: new Set<string>() };
+    const parsedRoot = buildNode(readXmlNode(rootElement), state);
+
+    if (parsedRoot.tag === 'Scene') {
+        return parsedRoot;
+    }
+
+    return {
+        tag: 'Scene',
+        id: 'scene-root',
+        attrs: { type: 'Scene' },
+        children: [parsedRoot],
+        sourceOrder: -1,
+        provenance: {
+            lineHint: 1
+        },
+        sockets: [],
+        boundingBox: {
+            size: { width: 0, depth: 0, height: 0 },
+            position: { x: 0, y: 0, z: 0 }
+        },
+        materials: {}
+    };
+}
+
+export const parseCadMarkup = parseCadXml;

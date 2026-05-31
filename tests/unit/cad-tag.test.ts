@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { heroTagButtons, scenarioPresets } from '../../src/app/presets';
-import { compileCadYaml } from '../../src/core';
+import { compileCadMarkup, compileCadYaml } from '../../src/core';
 import { buildExportPayload } from '../../src/export';
-import { parseCadYaml } from '../../src/core/tag-schema';
+import { parseCadXml, parseCadYaml } from '../../src/core/tag-schema';
 
 describe('cad yaml parsing', () => {
     it('parses a supported scene with furniture, room, and building coverage', () => {
@@ -134,16 +134,19 @@ parameters:
     });
 
     it('keeps nested room offsets and export payload deterministic', () => {
+        const roomCenterY = 1400;
+        const deskHeight = 740;
+        const groundedDeskY = deskHeight / 2 - roomCenterY;
         const graph = compileCadYaml(`type: Scene
 id: root
 components:
     - type: Room
       id: room
-      position: [2000, 1400, 1000]
+      position: [2000, ${roomCenterY}, 1000]
       components:
         - type: Desk
           id: desk
-          position: [300, 370, -200]
+          position: [300, ${groundedDeskY}, -200]
 `).graph;
         expect(graph.components[0]?.tag).toBe('Room');
         expect(graph.components[1]?.position.x).toBe(2300);
@@ -204,7 +207,71 @@ materials:
         expect(payload.components[0]?.materials).toEqual(graph.components[0]?.materials);
     });
 
-    it('keeps the advertised header tags while emphasizing primitive assembly presets', () => {
+    it('parses XML CAD tags and aliases into the normalized assembly graph', () => {
+        const graph = compileCadMarkup(`<KitchenBaseCabinet id="cabinet" width="900" height="850" depth="650">
+    <BoundingBox size="900 850 650" position="0 425 325" />
+    <Sockets>
+        <Socket id="slot_drawer_top" position="0 750 600" allowed_types="KitchenDrawer_W900" joint_type="slider" axis="0 0 1" min="0" max="450" />
+        <Socket id="hinge_door_bottom_left" position="-435 350 600" allowed_types="KitchenDoor_W450_Left" joint_type="hinge" axis="0 1 0" min="0" max="110" />
+    </Sockets>
+    <Component id="drawer_1" use="ソフトクローズ引き出しユニット W900" attach_to="slot_drawer_top" joint_value="250" />
+    <Component id="door_L" use="木目調キャビネット扉 左開き" attach_to="hinge_door_bottom_left" joint_value="90" />
+</KitchenBaseCabinet>`).graph;
+
+        expect(graph.components.map((component) => component.id)).toEqual(['cabinet', 'drawer_1', 'door_L']);
+        expect(graph.joints.map((joint) => joint.jointType)).toEqual(['slider', 'hinge']);
+        expect(graph.components[2]?.rotation.y).toBe(90);
+    });
+
+    it('rejects malformed XML and duplicate XML ids before solving', () => {
+        expect(() => parseCadXml('<Scene><Desk id="a"></Scene>')).toThrow(/XML|tag|Malformed/u);
+        expect(() =>
+            parseCadXml(`<Scene id="root">
+    <Desk id="duplicate" />
+    <Chair id="duplicate" />
+</Scene>`)
+        ).toThrow(/Duplicate component id/);
+
+        expect(() =>
+            parseCadYaml(`type: Scene
+id: root
+components:
+    - type: Desk
+      id: duplicate
+    - type: Chair
+      id: duplicate
+`)
+        ).toThrow(/Duplicate component id/);
+    });
+
+    it('rejects floating parts and excessive structural interference', () => {
+        expect(() =>
+            compileCadMarkup(`<Room id="room" width="3000" depth="2400" height="2600">
+    <PrimitiveBox id="floating" width="600" depth="600" height="100" margin_left="200" margin_back="200" margin_bottom="300" />
+</Room>`)
+        ).toThrow(/floating/);
+
+        expect(() =>
+            compileCadMarkup(`<Room id="room" width="3000" depth="2400" height="2600">
+    <PrimitiveBox id="left" width="800" depth="800" height="400" margin_left="200" margin_back="200" />
+    <PrimitiveBox id="right" width="800" depth="800" height="400" margin_left="240" margin_back="200" />
+</Room>`)
+        ).toThrow(/interfere excessively/);
+    });
+
+    it('rejects cabinet door depth interference', () => {
+        expect(() =>
+            compileCadMarkup(`<KitchenBaseCabinet id="cabinet" width="900" height="850" depth="650">
+    <BoundingBox size="900 850 650" position="0 425 325" />
+    <Sockets>
+        <Socket id="bad-door" position="-435 350 325" allowed_types="KitchenDoor_W450_Left" joint_type="hinge" axis="0 1 0" min="0" max="110" />
+    </Sockets>
+    <KitchenDoor_W450_Left id="door" attach_to="bad-door" />
+</KitchenBaseCabinet>`)
+        ).toThrow(/depth direction/);
+    });
+
+    it('keeps the advertised header tags while emphasizing XML primitive assembly presets', () => {
         expect(heroTagButtons).toEqual([
             'Bookshelf',
             'Bed',
@@ -221,9 +288,10 @@ materials:
             'Skyscraper',
             'KitchenBaseCabinet'
         ]);
-        expect(scenarioPresets['Primitive kitchen assembly']).toContain('type: KitchenBaseCabinet');
-        expect(scenarioPresets['Primitive layout constraints']).toContain('type: PrimitiveBox');
-        expect(scenarioPresets['Primitive layout constraints']).toContain('margin_bottom');
+        expect(scenarioPresets['XML kitchen assembly']).toContain('<KitchenBaseCabinet');
+        expect(scenarioPresets['XML layout constraints']).toContain('<PrimitiveBox');
+        expect(scenarioPresets['XML layout constraints']).toContain('margin_bottom');
+        expect(scenarioPresets['XML room furniture']).toContain('<Sofa');
     });
 
     it('supports primitive composition and keeps nested parts grounded with margin-based placement', () => {

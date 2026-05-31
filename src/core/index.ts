@@ -1,4 +1,4 @@
-import { solveYamlDocument, type AssemblyGraph } from './solver';
+import { solveXmlDocument, solveYamlDocument, type AssemblyGraph } from './solver';
 
 export interface CompileResult {
     graph: AssemblyGraph;
@@ -35,4 +35,32 @@ export function compileCadYaml(source: string): CompileResult {
     };
 }
 
-export const compileCadMarkup = compileCadYaml;
+export function compileCadMarkup(source: string): CompileResult {
+    const graph = solveXmlDocument(source);
+
+    return {
+        graph,
+        exported: JSON.stringify(
+            {
+                version: graph.version,
+                bounds: graph.bounds,
+                joints: graph.joints,
+                components: graph.components.map((component) => ({
+                    id: component.id,
+                    tag: component.tag,
+                    label: component.label,
+                    size: component.size,
+                    position: component.position,
+                    rotation: component.rotation,
+                    metadata: component.metadata,
+                    materials: component.materials,
+                    partCount: component.parts.length,
+                    parentId: component.parentId,
+                    attachment: component.attachment
+                }))
+            },
+            null,
+            4
+        )
+    };
+}

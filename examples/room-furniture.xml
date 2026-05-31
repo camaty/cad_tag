@@ -1,0 +1,7 @@
+<Scene id="sample-room-furniture">
+    <Room id="living-room" width="5200" depth="4200" height="2800">
+        <Sofa id="sofa" width="2100" depth="900" height="850" margin_left="420" margin_back="320" margin_bottom="0" />
+        <Table id="table" width="1200" depth="650" height="420" margin_left="850" margin_back="1500" margin_bottom="0" />
+        <StandLamp id="lamp" width="420" depth="420" height="1700" margin_left="3800" margin_back="360" margin_bottom="0" />
+    </Room>
+</Scene>
