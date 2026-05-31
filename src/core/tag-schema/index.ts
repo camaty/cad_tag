@@ -337,6 +337,7 @@ export const tagDefinitions: Record<SupportedCadTag, TagDefinition> = {
 };
 
 const supportedTags = new Set<SupportedCadTag>(Object.keys(tagDefinitions) as SupportedCadTag[]);
+const DEFAULT_SOCKET_AXIS = ['0', '0', '1'];
 const useAliases: Record<string, SupportedCadTag> = {
     Bookshelf: 'Bookshelf',
     Bed: 'Bed',
@@ -914,7 +915,7 @@ function readXmlSocket(element: Element): Record<string, unknown> {
         position: readXmlVector(attrs.position, `${element.tagName}.position`),
         allowed_types: splitXmlList(attrs.allowed_types ?? attrs.allowedTypes, `${element.tagName}.allowed_types`),
         joint_type: attrs.joint_type ?? attrs.jointType,
-        axis: attrs.axis ? readXmlVector(attrs.axis, `${element.tagName}.axis`) : ['0', '0', '1'],
+        axis: attrs.axis ? readXmlVector(attrs.axis, `${element.tagName}.axis`) : DEFAULT_SOCKET_AXIS,
         limits: {
             min: limitsAttrs.min,
             max: limitsAttrs.max

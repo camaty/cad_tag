@@ -146,6 +146,10 @@ function hasAnyAttr(attrs: Record<string, string>, keys: string[]): boolean {
     return keys.some((key) => attrs[key] !== undefined);
 }
 
+function gridOffset(index: number, span: number, gap: number, trailingMargin: number, hasExplicitMargin: boolean): number {
+    return hasExplicitMargin ? 0 : index * (span + gap + trailingMargin);
+}
+
 function addVectors(left: Vector3Like, right: Vector3Like): Vector3Like {
     return {
         x: left.x + right.x,
@@ -292,9 +296,9 @@ function resolveChildPlacement(
     const parentMinZ = parentComponent.position.z - parentComponent.size.depth / 2;
     const hasExplicitMarginX = hasAnyAttr(child.attrs, ['margin_left', 'margin_right', 'margin_x', 'margin']);
     const hasExplicitMarginZ = hasAnyAttr(child.attrs, ['margin_front', 'margin_back', 'margin_z', 'margin']);
-    const defaultChildX = parentMinX + margins.left + size.width / 2 + (hasExplicitMarginX ? 0 : column * (size.width + gap + margins.right));
+    const defaultChildX = parentMinX + margins.left + size.width / 2 + gridOffset(column, size.width, gap, margins.right, hasExplicitMarginX);
     const defaultChildY = parentBaseY + margins.bottom + size.height / 2;
-    const defaultChildZ = parentMinZ + margins.back + size.depth / 2 + (hasExplicitMarginZ ? 0 : row * (size.depth + gap + margins.front));
+    const defaultChildZ = parentMinZ + margins.back + size.depth / 2 + gridOffset(row, size.depth, gap, margins.front, hasExplicitMarginZ);
     const resolvedX = explicitX ?? (defaultChildX - parentAnchor.x);
     const resolvedY = explicitY ?? (defaultChildY - parentAnchor.y);
     const resolvedZ = explicitZ ?? (defaultChildZ - parentAnchor.z);
