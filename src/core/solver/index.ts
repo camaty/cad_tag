@@ -5,6 +5,7 @@ import {
     type MaterialConfig,
     assertPositiveSize,
     parseAngle,
+    parseCadXml,
     parseCadYaml,
     parseDimension,
     tagDefinitions,
@@ -79,6 +80,9 @@ interface LayoutMargins {
 // Keep broad spacing at root scenes so large furniture/building presets do not overlap in preview.
 const ROOT_FLOW_X_SPACING_MULTIPLIER = 2.8;
 const ROOT_FLOW_Z_SPACING_MULTIPLIER = 2.4;
+const STRUCTURE_TOLERANCE_MM = 0.001;
+const MIN_SUPPORT_OVERLAP_RATIO = 0.01;
+const MAX_COMPONENT_INTERFERENCE_RATIO = 0.05;
 
 function zeroVector(): Vector3Like {
     return { x: 0, y: 0, z: 0 };
@@ -282,9 +286,11 @@ function resolveChildPlacement(
     const parentBaseY = parentComponent.position.y - parentComponent.size.height / 2;
     const parentMinX = parentComponent.position.x - parentComponent.size.width / 2;
     const parentMinZ = parentComponent.position.z - parentComponent.size.depth / 2;
-    const defaultChildX = parentMinX + margins.left + size.width / 2 + column * (size.width + gap + margins.right);
+    const explicitMarginX = child.attrs.margin_left !== undefined || child.attrs.margin_right !== undefined || child.attrs.margin_x !== undefined || child.attrs.margin !== undefined;
+    const explicitMarginZ = child.attrs.margin_front !== undefined || child.attrs.margin_back !== undefined || child.attrs.margin_z !== undefined || child.attrs.margin !== undefined;
+    const defaultChildX = parentMinX + margins.left + size.width / 2 + (explicitMarginX ? 0 : column * (size.width + gap + margins.right));
     const defaultChildY = parentBaseY + margins.bottom + size.height / 2;
-    const defaultChildZ = parentMinZ + margins.back + size.depth / 2 + row * (size.depth + gap + margins.front);
+    const defaultChildZ = parentMinZ + margins.back + size.depth / 2 + (explicitMarginZ ? 0 : row * (size.depth + gap + margins.front));
     const resolvedX = explicitX ?? (defaultChildX - parentAnchor.x);
     const resolvedY = explicitY ?? (defaultChildY - parentAnchor.y);
     const resolvedZ = explicitZ ?? (defaultChildZ - parentAnchor.z);
@@ -342,6 +348,165 @@ function computeBounds(components: ResolvedComponent[]): { width: number; depth:
     };
 }
 
+function componentBottom(component: ResolvedComponent): number {
+    return component.position.y - component.size.height / 2;
+}
+
+function componentTop(component: ResolvedComponent): number {
+    return component.position.y + component.size.height / 2;
+}
+
+function overlapLength(minA: number, maxA: number, minB: number, maxB: number): number {
+    return Math.max(0, Math.min(maxA, maxB) - Math.max(minA, minB));
+}
+
+function xzOverlapArea(left: ResolvedComponent, right: ResolvedComponent): number {
+    const overlapX = overlapLength(
+        left.position.x - left.size.width / 2,
+        left.position.x + left.size.width / 2,
+        right.position.x - right.size.width / 2,
+        right.position.x + right.size.width / 2
+    );
+    const overlapZ = overlapLength(
+        left.position.z - left.size.depth / 2,
+        left.position.z + left.size.depth / 2,
+        right.position.z - right.size.depth / 2,
+        right.position.z + right.size.depth / 2
+    );
+
+    return overlapX * overlapZ;
+}
+
+function componentsTouchVertically(upper: ResolvedComponent, lower: ResolvedComponent): boolean {
+    return Math.abs(componentBottom(upper) - componentTop(lower)) <= STRUCTURE_TOLERANCE_MM;
+}
+
+function isAncestorPair(left: ResolvedComponent, right: ResolvedComponent, componentsById: Map<string, ResolvedComponent>): boolean {
+    let currentParentId = left.parentId;
+    while (currentParentId) {
+        if (currentParentId === right.id) {
+            return true;
+        }
+        currentParentId = componentsById.get(currentParentId)?.parentId;
+    }
+
+    currentParentId = right.parentId;
+    while (currentParentId) {
+        if (currentParentId === left.id) {
+            return true;
+        }
+        currentParentId = componentsById.get(currentParentId)?.parentId;
+    }
+
+    return false;
+}
+
+function hasSupport(component: ResolvedComponent, components: ResolvedComponent[], componentsById: Map<string, ResolvedComponent>): boolean {
+    const bottom = componentBottom(component);
+    const parent = component.parentId ? componentsById.get(component.parentId) : undefined;
+    const supportFloorY = parent ? componentBottom(parent) : 0;
+    if (bottom < supportFloorY - STRUCTURE_TOLERANCE_MM) {
+        throw new CadMarkupError(`${component.id} penetrates below its support floor.`);
+    }
+    if (Math.abs(bottom - supportFloorY) <= STRUCTURE_TOLERANCE_MM) {
+        return true;
+    }
+
+    const footprintArea = component.size.width * component.size.depth;
+    return components.some((candidate) => {
+        if (candidate.id === component.id || candidate.id === component.parentId || candidate.parentId !== component.parentId) {
+            return false;
+        }
+        if (!componentsTouchVertically(component, candidate)) {
+            return false;
+        }
+
+        return xzOverlapArea(component, candidate) / footprintArea >= MIN_SUPPORT_OVERLAP_RATIO;
+    });
+}
+
+function validateGrounding(components: ResolvedComponent[]): void {
+    const componentsById = new Map(components.map((component) => [component.id, component]));
+    for (const component of components) {
+        if (component.attachment) {
+            continue;
+        }
+        if (!hasSupport(component, components, componentsById)) {
+            throw new CadMarkupError(`${component.id} is floating without floor or member support.`);
+        }
+    }
+}
+
+function intersectionVolume(left: ResolvedComponent, right: ResolvedComponent): number {
+    const overlapX = overlapLength(
+        left.position.x - left.size.width / 2,
+        left.position.x + left.size.width / 2,
+        right.position.x - right.size.width / 2,
+        right.position.x + right.size.width / 2
+    );
+    const overlapY = overlapLength(componentBottom(left), componentTop(left), componentBottom(right), componentTop(right));
+    const overlapZ = overlapLength(
+        left.position.z - left.size.depth / 2,
+        left.position.z + left.size.depth / 2,
+        right.position.z - right.size.depth / 2,
+        right.position.z + right.size.depth / 2
+    );
+
+    return overlapX * overlapY * overlapZ;
+}
+
+function validateDoorDepthClearance(child: ResolvedComponent, parent: ResolvedComponent): void {
+    if (child.tag !== 'KitchenDoor_W450_Left' && child.tag !== 'KitchenDoor_W450_Right') {
+        return;
+    }
+
+    const minimumFrontZoneCenter = parent.position.z + parent.size.depth / 4;
+    if (child.position.z < minimumFrontZoneCenter) {
+        throw new CadMarkupError(`${child.id} interferes with ${parent.id} in the depth direction.`);
+    }
+}
+
+function validateInterference(components: ResolvedComponent[]): void {
+    const componentsById = new Map(components.map((component) => [component.id, component]));
+    for (const component of components) {
+        const parent = component.parentId ? componentsById.get(component.parentId) : undefined;
+        if (parent) {
+            validateDoorDepthClearance(component, parent);
+        }
+    }
+
+    for (let leftIndex = 0; leftIndex < components.length; leftIndex += 1) {
+        const left = components[leftIndex]!;
+        for (let rightIndex = leftIndex + 1; rightIndex < components.length; rightIndex += 1) {
+            const right = components[rightIndex]!;
+            if (isAncestorPair(left, right, componentsById)) {
+                continue;
+            }
+            if (left.attachment || right.attachment) {
+                continue;
+            }
+            if (tagDefinitions[left.tag].category === 'architecture' || tagDefinitions[right.tag].category === 'architecture') {
+                continue;
+            }
+
+            const volume = intersectionVolume(left, right);
+            if (volume <= STRUCTURE_TOLERANCE_MM) {
+                continue;
+            }
+
+            const smallerVolume = Math.min(left.size.width * left.size.depth * left.size.height, right.size.width * right.size.depth * right.size.height);
+            if (volume / smallerVolume > MAX_COMPONENT_INTERFERENCE_RATIO) {
+                throw new CadMarkupError(`${left.id} and ${right.id} interfere excessively.`);
+            }
+        }
+    }
+}
+
+function validateResolvedStructure(components: ResolvedComponent[]): void {
+    validateGrounding(components);
+    validateInterference(components);
+}
+
 export function solveYamlDocument(source: string): AssemblyGraph {
     const root = parseCadYaml(source);
     const context: SolveContext = {
@@ -350,6 +515,7 @@ export function solveYamlDocument(source: string): AssemblyGraph {
     };
 
     resolveNode(root, { position: zeroVector(), rotation: zeroVector() }, context);
+    validateResolvedStructure(context.components);
 
     return {
         version: registryVersion,
@@ -360,4 +526,23 @@ export function solveYamlDocument(source: string): AssemblyGraph {
     };
 }
 
-export const solveMarkup = solveYamlDocument;
+export function solveXmlDocument(source: string): AssemblyGraph {
+    const root = parseCadXml(source);
+    const context: SolveContext = {
+        components: [],
+        joints: []
+    };
+
+    resolveNode(root, { position: zeroVector(), rotation: zeroVector() }, context);
+    validateResolvedStructure(context.components);
+
+    return {
+        version: registryVersion,
+        root,
+        components: context.components,
+        joints: context.joints,
+        bounds: computeBounds(context.components)
+    };
+}
+
+export const solveMarkup = solveXmlDocument;

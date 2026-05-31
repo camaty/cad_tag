@@ -1,0 +1,9 @@
+<Scene id="sample-supported-layout">
+    <Layout columns="1" gap="1200" />
+    <Room id="workshop" width="4200" depth="3200" height="2600">
+        <PrimitiveBox id="base" width="1400" depth="620" height="80" margin_left="360" margin_back="260" margin_bottom="0" />
+        <PrimitiveBox id="left-panel" width="18" depth="620" height="760" margin_left="360" margin_back="260" margin_bottom="80" />
+        <PrimitiveBox id="right-panel" width="18" depth="620" height="760" margin_left="1742" margin_back="260" margin_bottom="80" />
+        <PrimitiveBox id="top" width="1400" depth="650" height="30" margin_left="360" margin_back="260" margin_bottom="840" />
+    </Room>
+</Scene>
