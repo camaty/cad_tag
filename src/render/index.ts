@@ -143,7 +143,7 @@ export class ThreePreview {
 
         for (const component of components) {
             const componentGroup = new Group();
-            componentGroup.position.set(toMeters(component.position.x), toMeters(component.position.y), toMeters(component.position.z));
+            componentGroup.position.set(toMeters(component.position.x), toMeters(component.position.y - component.size.height / 2), toMeters(component.position.z));
             componentGroup.rotation.set(toRadians(component.rotation.x), toRadians(component.rotation.y), toRadians(component.rotation.z));
 
             for (const part of component.parts) {
