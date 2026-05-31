@@ -21,7 +21,9 @@ export type SupportedCadTag =
     | 'KitchenDoor_W450_Left'
     | 'KitchenDoor_W450_Right'
     | 'PrimitiveBox'
-    | 'PrimitiveCylinder';
+    | 'PrimitiveCylinder'
+    | 'MerryGoRound'
+    | 'ChristmasTree';
 
 export type PartKind = 'box' | 'cylinder';
 export type JointType = 'fixed' | 'slider' | 'hinge';
@@ -111,12 +113,13 @@ const furnitureTags: SupportedCadTag[] = [
     'StandLamp',
     'KitchenBaseCabinet',
     'PrimitiveBox',
-    'PrimitiveCylinder'
+    'PrimitiveCylinder',
+    'ChristmasTree'
 ];
 
 const roomChildren: SupportedCadTag[] = [...furnitureTags, 'KitchenDrawer_W900', 'KitchenDoor_W450_Left', 'KitchenDoor_W450_Right'];
 const houseChildren: SupportedCadTag[] = ['Room', ...roomChildren];
-const sceneChildren: SupportedCadTag[] = ['Group', 'Room', ...roomChildren, 'House', 'Building', 'Skyscraper'];
+const sceneChildren: SupportedCadTag[] = ['Group', 'Room', ...roomChildren, 'House', 'Building', 'Skyscraper', 'MerryGoRound'];
 
 const leafValidationErrors = [
     'width/depth/height must be positive dimensions in mm, cm, or m when provided.',
@@ -333,6 +336,26 @@ export const tagDefinitions: Record<SupportedCadTag, TagDefinition> = {
         allowedChildren: [],
         exportMeaning: 'Generic cylinder primitive for deterministic structural composition.',
         validationErrors: ['PrimitiveCylinder dimensions and margins must produce non-floating placement in the solved graph.']
+    },
+    MerryGoRound: {
+        tag: 'MerryGoRound',
+        label: 'Merry-Go-Round',
+        defaultSize: { width: 3200, depth: 3200, height: 4200 },
+        color: '#f43f5e',
+        category: 'architecture',
+        allowedChildren: [],
+        exportMeaning: 'Rotating carousel ride with central pole, platform, and canopy.',
+        validationErrors: leafValidationErrors
+    },
+    ChristmasTree: {
+        tag: 'ChristmasTree',
+        label: 'Christmas Tree',
+        defaultSize: { width: 1600, depth: 1600, height: 2400 },
+        color: '#16a34a',
+        category: 'furniture',
+        allowedChildren: [],
+        exportMeaning: 'Decorated conifer-style Christmas tree with layered tiers and star topper.',
+        validationErrors: leafValidationErrors
     }
 };
 
@@ -358,6 +381,8 @@ const useAliases: Record<string, SupportedCadTag> = {
     KitchenDoor_W450_Right: 'KitchenDoor_W450_Right',
     PrimitiveBox: 'PrimitiveBox',
     PrimitiveCylinder: 'PrimitiveCylinder',
+    MerryGoRound: 'MerryGoRound',
+    ChristmasTree: 'ChristmasTree',
     'ソフトクローズ引き出しユニット W900': 'KitchenDrawer_W900',
     '木目調キャビネット扉 左開き': 'KitchenDoor_W450_Left',
     '木目調キャビネット扉 右開き': 'KitchenDoor_W450_Right'

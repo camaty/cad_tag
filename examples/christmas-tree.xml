@@ -1,0 +1,3 @@
+<Scene id="sample-christmas-tree">
+    <ChristmasTree id="tree" width="1600" depth="1600" height="2400" color="#16a34a" />
+</Scene>

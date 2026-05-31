@@ -214,5 +214,51 @@ export const catalogFactories: Record<RenderableCadTag, PartFactory> = {
     ],
     PrimitiveCylinder: (size, color) => [
         createCylinder('primitive-cylinder', size.width, size.height, { x: 0, y: half(size.height), z: 0 }, color)
-    ]
+    ],
+    MerryGoRound: (size, color) => {
+        const platformH = size.height * 0.06;
+        const poleD = size.width * 0.06;
+        const poleH = size.height * 0.72;
+        const canopyH = size.height * 0.08;
+        const canopyD = size.width * 0.94;
+        const seatD = size.width * 0.09;
+        const seatH = size.height * 0.14;
+        const armThick = size.width * 0.03;
+        const armLen = size.width * 0.4;
+        const armY = platformH + poleH;
+        const armOffset = armLen / 2 + poleD / 2;
+        const parts: ComponentPart[] = [
+            createCylinder('platform', size.width * 0.82, platformH, { x: 0, y: platformH / 2, z: 0 }, '#e2e8f0'),
+            createCylinder('pole', poleD, poleH, { x: 0, y: platformH + poleH / 2, z: 0 }, '#94a3b8'),
+            createCylinder('canopy', canopyD, canopyH, { x: 0, y: platformH + poleH + canopyH / 2, z: 0 }, color),
+            createBox('arm-n', { width: armThick, depth: armLen, height: armThick }, { x: 0, y: armY - armThick / 2, z: -armOffset }, '#94a3b8'),
+            createBox('arm-s', { width: armThick, depth: armLen, height: armThick }, { x: 0, y: armY - armThick / 2, z: armOffset }, '#94a3b8'),
+            createBox('arm-e', { width: armLen, depth: armThick, height: armThick }, { x: armOffset, y: armY - armThick / 2, z: 0 }, '#94a3b8'),
+            createBox('arm-w', { width: armLen, depth: armThick, height: armThick }, { x: -armOffset, y: armY - armThick / 2, z: 0 }, '#94a3b8'),
+            createCylinder('seat-n', seatD, seatH, { x: 0, y: platformH + seatH / 2, z: -(poleD / 2 + armLen) }, '#fbbf24'),
+            createCylinder('seat-s', seatD, seatH, { x: 0, y: platformH + seatH / 2, z: poleD / 2 + armLen }, '#fb923c'),
+            createCylinder('seat-e', seatD, seatH, { x: poleD / 2 + armLen, y: platformH + seatH / 2, z: 0 }, '#a78bfa'),
+            createCylinder('seat-w', seatD, seatH, { x: -(poleD / 2 + armLen), y: platformH + seatH / 2, z: 0 }, '#34d399')
+        ];
+        return parts;
+    },
+    ChristmasTree: (size, color) => {
+        const trunkD = size.width * 0.08;
+        const trunkH = size.height * 0.12;
+        const tiers = 4;
+        const tierH = size.height * 0.2;
+        const starH = size.height * 0.08;
+        const parts: ComponentPart[] = [
+            createCylinder('trunk', trunkD, trunkH, { x: 0, y: trunkH / 2, z: 0 }, '#78350f')
+        ];
+        for (let i = 0; i < tiers; i += 1) {
+            const ratio = 1 - i * 0.22;
+            const d = size.width * ratio;
+            const yBase = trunkH + i * tierH * 0.72;
+            parts.push(createCylinder(`tier-${i + 1}`, d, tierH, { x: 0, y: yBase + tierH / 2, z: 0 }, color));
+        }
+        const treeTop = trunkH + tiers * tierH * 0.72 + tierH;
+        parts.push(createBox('star', { width: starH, depth: starH, height: starH }, { x: 0, y: treeTop + starH / 2, z: 0 }, '#fde047'));
+        return parts;
+    }
 };

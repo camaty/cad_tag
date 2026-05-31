@@ -1,0 +1,3 @@
+<Scene id="sample-merry-go-round">
+    <MerryGoRound id="carousel" width="3200" depth="3200" height="4200" color="#f43f5e" />
+</Scene>
